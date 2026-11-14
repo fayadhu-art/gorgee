@@ -103,6 +103,9 @@ export function IntakeForm({ drinkId, intakeId }: { drinkId: string; intakeId?: 
   const [other, setOther] = useState('')
   const [note, setNote] = useState(ex?.note ?? '')
   const [confirmDel, setConfirmDel] = useState(false)
+  // Eau, thé, infusion : quantité puis Valider, sans avis ni options visibles.
+  const simple = !!d && ['eau_plate', 'eau_gazeuse', 'the', 'infusion'].includes(d.category)
+  const [more, setMore] = useState(false)
   if (!d) return <><Bar title="Boisson introuvable" onBack={back} /><main className="main"><p>Cette fiche n’existe plus.</p></main></>
   const cap = capOf(cont)
   const n = Math.round(Number(ml.replace(',', '.')))
@@ -116,7 +119,7 @@ export function IntakeForm({ drinkId, intakeId }: { drinkId: string; intakeId?: 
     addIntake(i)
     toast(ex ? 'Consommation modifiée, totaux recalculés' : 'Consommation enregistrée')
     back(); if (!ex) back()
-    go({ s: 'advice', intakeId: i.id })
+    if (simple) { toast(`${d.name} : ${n} ml ajoutés`); go({ s: 'today' }) } else go({ s: 'advice', intakeId: i.id })
   }
   const del = () => {
     if (!ex) return
@@ -141,7 +144,7 @@ export function IntakeForm({ drinkId, intakeId }: { drinkId: string; intakeId?: 
             {SHOWN.some((n) => { const x = intakeValue(d, n, 100); return !isKnown(x) && x.missing !== 'non_applicable' }) && <span className="help">Des valeurs manquent : complète-les depuis l’étiquette.</span>}
             <button className="btn sec sm" onClick={() => go({ s: 'product', drinkId: d.id })}>Saisir ou corriger les valeurs</button>
           </section>
-        ) : (d.kind === 'the' || d.kind === 'recette') && d.recipe ? (
+        ) : (d.kind === 'the' || d.kind === 'recette') && d.recipe && !simple ? (
           <section className="card" aria-labelledby="cp">
             <span className="lbl" id="cp">Composition enregistrée</span>
             <p>{d.recipe.ingredients.map((g) => g.name).join(', ') || 'Aucun ingrédient indiqué'}</p>
@@ -173,6 +176,8 @@ export function IntakeForm({ drinkId, intakeId }: { drinkId: string; intakeId?: 
           <span className={valid || !ml ? 'help' : 'err'} id="mlh">
             {!Number.isFinite(n) || n <= 0 ? 'Indique une quantité en millilitres, supérieure à zéro.' : n > 5000 ? 'Plus de 5 litres en une prise : vérifie la saisie.' : n > cap ? `${n} ml, plus que la contenance (${cap} ml). Vérifie si tu as resservi.` : `${n} ml bus sur un contenant de ${cap} ml`}
           </span></div>
+        {simple && !more && <button className="link" onClick={() => setMore(true)}><Icon n="next" />Changer l’heure ou ajouter une note</button>}
+        {(!simple || more) && <>
         <div className="grid2">
           <div className="field"><label htmlFor="d">Date</label><input className="inp num" id="d" type="date" value={date} onChange={(e) => setDate(e.target.value)} /></div>
           <div className="field"><label htmlFor="h">Heure</label><input className="inp num" id="h" type="time" value={time} onChange={(e) => setTime(e.target.value)} /></div>
@@ -185,9 +190,10 @@ export function IntakeForm({ drinkId, intakeId }: { drinkId: string; intakeId?: 
             <button className="btn sec sm" disabled={!other.trim()} onClick={() => { toggle(other.trim()); setOther('') }}>Ajouter</button></div>
           <span className="help">La composition des ajouts n’est pas comptée : l’analyse sera marquée incomplète.</span></div>
         <div className="field"><label htmlFor="n">Note <span className="help">(facultatif)</span></label><input className="inp" id="n" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Ex. au déjeuner" /></div>
+        </>}
         {ex && <button className="btn danger" onClick={() => setConfirmDel(true)}><Icon n="trash" />Supprimer cette consommation</button>}
       </main>
-      <div className="fab"><button className="btn" disabled={!valid} onClick={submit}>{ex ? 'Enregistrer les modifications' : 'Enregistrer et voir l’avis'}</button></div>
+      <div className="fab"><button className="btn" disabled={!valid} onClick={submit}>{ex ? 'Enregistrer les modifications' : simple ? <><Icon n="check" />Valider</> : 'Enregistrer et voir l’avis'}</button></div>
       {confirmDel && (
         <div className="sheet" role="dialog" aria-modal="true" aria-labelledby="cd"><div>
           <h3 id="cd">Supprimer cette consommation ?</h3>

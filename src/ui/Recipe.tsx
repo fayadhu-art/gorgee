@@ -53,13 +53,18 @@ export function RecipeForm({ drinkId, tea, teaKind, initialName }: { drinkId?: s
   const ex = st.drinks.find((d) => d.id === drinkId)
   const [name, setName] = useState(ex?.name ?? initialName ?? '')
   const [cat] = useState<'the' | 'infusion' | 'maison'>(ex ? (ex.category as 'the') : tea ? teaKind ?? 'the' : 'maison')
-  const [homemade, setHomemade] = useState(ex ? ex.traits.includes('maison') : true)
+  const [homemade, setHomemade] = useState(ex ? ex.traits.includes('maison') : !tea)
+  const [more, setMore] = useState(!tea)
   const [caff, setCaff] = useState(ex ? ex.traits.includes('cafeinee') : !!tea && teaKind !== 'infusion')
-  const [r, setR] = useState<Recipe>(ex?.recipe ?? { ingredients: [newIng()], prep: tea ? 'infusion' : 'melange', confirmedNoAddedSugar: false })
+  const [r0, setR] = useState<Recipe>(ex?.recipe ?? { ingredients: tea ? [] : [newIng()], prep: tea ? 'infusion' : 'melange', confirmedNoAddedSugar: false, finalMl: tea ? 250 : undefined })
+  // Thé et infusion en saisie rapide : la composition minimale est la boisson elle-même.
+  const r: Recipe = tea && !r0.ingredients.some((i) => i.name.trim()) && name.trim() ? { ...r0, ingredients: [{ ...newIng(name.trim()), id: 'auto' }] } : r0
   const [manual, setManual] = useState<Partial<Record<Nutrient, Val>>>(ex && ex.valuesSourceNote ? ex.values : {})
   const [manualSrc, setManualSrc] = useState<Source>('utilisateur')
   const [srcNote, setSrcNote] = useState(ex?.valuesSourceNote ?? '')
   const up = (p: Partial<Recipe>) => setR((x) => ({ ...x, ...p }))
+  const ingText = r0.ingredients.map((i) => i.name).join(', ')
+  const setIngText = (t: string) => setR((x) => ({ ...x, ingredients: t.split(',').map((n) => n.trim()).filter(Boolean).map((n) => x.ingredients.find((i) => i.name === n) ?? newIng(n)) }))
   const checkSugar = !tea || homemade
   const chk = checkRecipe(r)
   const status = checkSugar ? chk.status : (!r.ingredients.length || !(r.finalMl && r.finalMl > 0) ? 'brouillon' : 'conforme')
@@ -87,6 +92,10 @@ export function RecipeForm({ drinkId, tea, teaKind, initialName }: { drinkId?: s
       <main className="main">
         {!tea && <StateBox k="information" title="Sans sucre ajouté uniquement"><p>Cette fonction est réservée aux préparations sans sucre, miel, sirop ni autre ingrédient sucrant. C’est une règle de l’appli, pas une certification.</p></StateBox>}
         <div className="field"><label htmlFor="rn">Nom</label><input id="rn" className="inp" value={name} onChange={(e) => setName(e.target.value)} placeholder={tea ? 'Ex. Thé vert menthe' : 'Ex. Eau citron gingembre'} /></div>
+        {tea && <div className="field"><label htmlFor="ig">Composition <span className="help">séparée par des virgules</span></label><input id="ig" className="inp" value={ingText} onChange={(e) => setIngText(e.target.value)} placeholder={cat === 'infusion' ? 'Ex. verveine, menthe' : 'Ex. thé vert, menthe'} />
+          <span className="help">Enregistrée une fois : ensuite tu choisis la quantité et tu valides.</span></div>}
+        {tea && <button className="link" onClick={() => setMore(!more)}><Icon n={more ? 'back' : 'next'} />{more ? 'Masquer les détails' : 'Plus de détails (facultatif)'}</button>}
+        {more && <>
         {tea && <>
           <div className="field"><label htmlFor="tt">Variété <span className="help">facultatif</span></label><input id="tt" className="inp" value={r.teaType ?? ''} onChange={(e) => up({ teaType: e.target.value || undefined })} placeholder="Ex. thé vert sencha, verveine…" /></div>
           <div className="list">
@@ -146,6 +155,7 @@ export function RecipeForm({ drinkId, tea, teaKind, initialName }: { drinkId?: s
           {SHOWN.map((n) => <ValInput key={n} id={`m-${n}`} label={nlabel(n)} unit={`${NUTRIENTS[n].unit}/100 ml`} value={manual[n]} src={manualSrc} onChange={(v) => setManual((x) => { const y = { ...x }; if (v) y[n] = v; else delete y[n]; return y })} />)}
         </details>
 
+        </>}
         {checkSugar && <label className="check"><input type="checkbox" checked={r.confirmedNoAddedSugar} onChange={(e) => up({ confirmedNoAddedSugar: e.target.checked })} />Je confirme que cette recette ne contient aucun sucre ajouté</label>}
         {status === 'refusee' && <StateBox k="depassement" title="Recette refusée"><ul>{chk.refused.map((x) => <li key={x.i.id}>{(x.c as { reason: string }).reason}</li>)}</ul><p style={{ marginTop: 4 }}>Retire cet ingrédient pour l’enregistrer. Une boisson sucrée achetée s’enregistre comme fiche produit.</p></StateBox>}
         {status === 'brouillon' && <StateBox k="incomplete" title="Pas encore validable"><ul>{[...(checkSugar ? chk.pending.map((x) => (x.c as { reason: string }).reason) : []), ...(checkSugar ? chk.problems : !(r.finalMl && r.finalMl > 0) ? ['Indique le volume final préparé.'] : [])].map((t) => <li key={t}>{t}</li>)}</ul></StateBox>}
