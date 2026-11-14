@@ -1,0 +1,71 @@
+name: Fabriquer l'appli iPhone (.ipa)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  ipa:
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Tester et construire la page de l'appli (Vite)
+        run: |
+          npm ci
+          npm test
+          npm run build
+
+      - name: Créer le projet iOS (Capacitor)
+        run: |
+          npx cap add ios
+          npx cap sync ios
+
+      - name: Réglages iPhone (nom, icône, appareil photo, numéro de version)
+        run: |
+          PL=ios/App/App/Info.plist
+          set_str () { /usr/libexec/PlistBuddy -c "Delete :$1" $PL 2>/dev/null || true; /usr/libexec/PlistBuddy -c "Add :$1 string $2" $PL; }
+          set_str CFBundleDisplayName "Gorgée"
+          set_str NSCameraUsageDescription "L’appareil photo sert à photographier la boisson et son tableau nutritionnel. La lecture se fait sur l’iPhone, les photos ne sont pas gardées."
+          set_str NSPhotoLibraryUsageDescription "Tu peux choisir une photo d’étiquette déjà prise. Elle est lue sur l’iPhone et n’est pas gardée."
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${{ github.run_number }}" $PL
+          cp ios-ressources/AppIcon-512@2x.png ios/App/App/Assets.xcassets/AppIcon.appiconset/AppIcon-512@2x.png
+
+      - name: Compiler sans signature
+        run: |
+          cd ios/App
+          if [ -d App.xcworkspace ]; then CIBLE="-workspace App.xcworkspace"; else CIBLE="-project App.xcodeproj"; fi
+          xcodebuild $CIBLE -scheme App -configuration Release -sdk iphoneos \
+            -destination 'generic/platform=iOS' -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build | tail -40
+          test -d build/Build/Products/Release-iphoneos/App.app
+
+      - name: Emballer en .ipa
+        run: |
+          cd ios/App
+          mkdir -p Payload
+          cp -R build/Build/Products/Release-iphoneos/App.app Payload/
+          zip -qry "$GITHUB_WORKSPACE/Gorgee.ipa" Payload
+          ls -lh "$GITHUB_WORKSPACE/Gorgee.ipa"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Gorgee-ipa
+          path: Gorgee.ipa
+
+      - name: Publier dans les Releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "v${{ github.run_number }}" Gorgee.ipa \
+            --title "Gorgée, fabrication ${{ github.run_number }}" \
+            --notes "Fichier Gorgee.ipa non signé, à installer sur iPhone avec Sideloadly. Réinstalle par-dessus l’ancienne version pour garder tes données."
