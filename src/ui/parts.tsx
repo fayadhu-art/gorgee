@@ -30,7 +30,7 @@ export const catLabel = (c: Category) => CATEGORIES[c]
 
 export type Screen =
   | { s: 'today'; day?: string } | { s: 'choose'; cat?: Category } | { s: 'intake'; drinkId: string; intakeId?: string }
-  | { s: 'advice'; intakeId: string } | { s: 'product'; drinkId?: string; cat?: Category; name?: string; draft?: Drink; scanned?: number } | { s: 'scan'; name?: string; cat?: Category } | { s: 'tea'; drinkId?: string }
+  | { s: 'advice'; intakeId: string } | { s: 'product'; drinkId?: string; cat?: Category; name?: string; draft?: Drink; scanned?: number } | { s: 'scan'; name?: string; cat?: Category } | { s: 'tea'; drinkId?: string; kind?: 'the' | 'infusion'; name?: string }
   | { s: 'recipe'; drinkId?: string } | { s: 'library' } | { s: 'drink'; drinkId: string } | { s: 'history' }
   | { s: 'rule'; ruleId: string } | { s: 'settings' } | { s: 'welcome' } | { s: 'sport'; id?: string }
 

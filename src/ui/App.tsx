@@ -68,7 +68,7 @@ export default function App() {
       case 'advice': return <Advice intakeId={cur.intakeId} />
       case 'product': return <ProductForm drinkId={cur.drinkId} cat={cur.cat} name={cur.name} draft={cur.draft} scanned={cur.scanned} />
       case 'scan': return <Scan name={cur.name} cat={cur.cat} />
-      case 'tea': return <RecipeForm drinkId={cur.drinkId} tea />
+      case 'tea': return <RecipeForm drinkId={cur.drinkId} tea teaKind={cur.kind} initialName={cur.name} />
       case 'recipe': return <RecipeForm drinkId={cur.drinkId} />
       case 'library': return <Library />
       case 'drink': return <DrinkDetail drinkId={cur.drinkId} />

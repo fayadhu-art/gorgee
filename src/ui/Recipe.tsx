@@ -48,13 +48,13 @@ function IngredientEditor({ i, onChange, onRemove, prep, checkSugar }: { i: Ingr
   )
 }
 
-export function RecipeForm({ drinkId, tea }: { drinkId?: string; tea?: boolean }) {
+export function RecipeForm({ drinkId, tea, teaKind, initialName }: { drinkId?: string; tea?: boolean; teaKind?: 'the' | 'infusion'; initialName?: string }) {
   const { st, set, back, go, toast } = useApp()
   const ex = st.drinks.find((d) => d.id === drinkId)
-  const [name, setName] = useState(ex?.name ?? '')
-  const [cat, setCat] = useState<'the' | 'infusion' | 'maison'>(ex ? (ex.category as 'the') : tea ? 'the' : 'maison')
+  const [name, setName] = useState(ex?.name ?? initialName ?? '')
+  const [cat] = useState<'the' | 'infusion' | 'maison'>(ex ? (ex.category as 'the') : tea ? teaKind ?? 'the' : 'maison')
   const [homemade, setHomemade] = useState(ex ? ex.traits.includes('maison') : true)
-  const [caff, setCaff] = useState(ex ? ex.traits.includes('cafeinee') : tea ?? false)
+  const [caff, setCaff] = useState(ex ? ex.traits.includes('cafeinee') : !!tea && teaKind !== 'infusion')
   const [r, setR] = useState<Recipe>(ex?.recipe ?? { ingredients: [newIng()], prep: tea ? 'infusion' : 'melange', confirmedNoAddedSugar: false })
   const [manual, setManual] = useState<Partial<Record<Nutrient, Val>>>(ex && ex.valuesSourceNote ? ex.values : {})
   const [manualSrc, setManualSrc] = useState<Source>('utilisateur')
@@ -83,13 +83,11 @@ export function RecipeForm({ drinkId, tea }: { drinkId?: string; tea?: boolean }
   const named = !!name.trim()
   return (
     <>
-      <Bar title={ex ? 'Modifier' : tea ? 'Nouveau thé ou infusion' : 'Recette maison'} onBack={back} />
+      <Bar title={ex ? 'Modifier' : tea ? (cat === 'infusion' ? 'Nouvelle infusion' : 'Nouveau thé') : 'Recette maison'} onBack={back} />
       <main className="main">
         {!tea && <StateBox k="information" title="Sans sucre ajouté uniquement"><p>Cette fonction est réservée aux préparations sans sucre, miel, sirop ni autre ingrédient sucrant. C’est une règle de l’appli, pas une certification.</p></StateBox>}
         <div className="field"><label htmlFor="rn">Nom</label><input id="rn" className="inp" value={name} onChange={(e) => setName(e.target.value)} placeholder={tea ? 'Ex. Thé vert menthe' : 'Ex. Eau citron gingembre'} /></div>
         {tea && <>
-          <div className="field"><span className="fl">Type</span>
-            <div className="chips"><button className="chip" aria-pressed={cat === 'the'} onClick={() => { setCat('the'); setCaff(true) }}>Thé</button><button className="chip" aria-pressed={cat === 'infusion'} onClick={() => { setCat('infusion'); setCaff(false) }}>Infusion</button></div></div>
           <div className="field"><label htmlFor="tt">Variété <span className="help">facultatif</span></label><input id="tt" className="inp" value={r.teaType ?? ''} onChange={(e) => up({ teaType: e.target.value || undefined })} placeholder="Ex. thé vert sencha, verveine…" /></div>
           <div className="list">
             <div className="row" style={{ cursor: 'default' }}><span className="m"><b>Préparation maison</b><small>Applique la règle « sans sucre ajouté ».</small></span><button className="sw" role="switch" aria-checked={homemade} aria-label="Préparation maison" onClick={() => setHomemade(!homemade)}><i /></button></div>

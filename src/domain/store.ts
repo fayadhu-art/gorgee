@@ -40,7 +40,6 @@ export const CATALOGUE: Drink[] = [
   generic('g-eau', 'Eau plate', 'eau_plate', [], { sucres: NA, energie_kcal: NA, cafeine: NA }),
   generic('g-eau-gaz', 'Eau gazeuse', 'eau_gazeuse', ['gazeuse'], { cafeine: NA }),
   generic('g-cafe', 'Café', 'cafe', ['cafeinee'], { cafeine: UNK }),
-  generic('g-the', 'Thé', 'the', ['cafeinee'], { cafeine: UNK }),
   generic('g-infusion', 'Infusion', 'infusion'),
 ]
 

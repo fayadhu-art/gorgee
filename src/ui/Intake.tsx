@@ -14,8 +14,8 @@ const norm = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').t
 export function Choose({ cat }: { cat?: Category }) {
   const { st, go, back, addIntake, toast } = useApp()
   const [q, setQ] = useState('')
-  // Sans photo, seuls restent les génériques thé, café, eau (et infusion) ; les anciens « Jus », « Lait » génériques sont masqués.
-  const usable = st.drinks.filter((d) => d.status !== 'brouillon' && !(d.kind === 'generique' && (d.category === 'jus' || d.category === 'lait_vegetale')))
+  // Sans photo, seuls restent les génériques café, eau et infusion ; les anciens « Jus », « Lait », « Thé » génériques sont masqués.
+  const usable = st.drinks.filter((d) => d.status !== 'brouillon' && !(d.kind === 'generique' && (d.category === 'jus' || d.category === 'lait_vegetale' || d.category === 'the')))
   // Habituelles : favoris + boissons les plus saisies.
   const freq = useMemo(() => {
     const c = new Map<string, number>()
@@ -75,7 +75,8 @@ export function Choose({ cat }: { cat?: Category }) {
         )}
         <div className="list">
         <button className="link" onClick={() => go({ s: 'scan', cat })}><Icon n="camera" />Ajouter une boisson du commerce (2 photos)</button>
-        <button className="link" onClick={() => go({ s: 'tea' })}><Icon n="tea" />Créer un thé ou une infusion</button>
+        <button className="link" onClick={() => go({ s: 'scan', cat: 'the' })}><Icon n="tea" />Ajouter un thé (2 photos)</button>
+        <button className="link" onClick={() => go({ s: 'tea', kind: 'infusion' })}><Icon n="leaf" />Créer une infusion</button>
         <button className="link" onClick={() => go({ s: 'recipe' })}><Icon n="doc" />Créer une recette maison sans sucre ajouté</button>
         </div>
       </main>

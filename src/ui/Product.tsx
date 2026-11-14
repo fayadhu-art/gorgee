@@ -193,7 +193,8 @@ export function Library() {
           ))}
         </section>
         <div className="list">
-        <button className="link" onClick={() => go({ s: 'tea' })}><Icon n="tea" />Créer un thé ou une infusion</button>
+        <button className="link" onClick={() => go({ s: 'scan', cat: 'the' })}><Icon n="tea" />Ajouter un thé (2 photos)</button>
+        <button className="link" onClick={() => go({ s: 'tea', kind: 'infusion' })}><Icon n="leaf" />Créer une infusion</button>
         <button className="link" onClick={() => go({ s: 'recipe' })}><Icon n="doc" />Créer une recette maison sans sucre ajouté</button>
         <button className="link" onClick={() => go({ s: 'scan' })}><Icon n="camera" />Ajouter une boisson du commerce (2 photos)</button>
         </div>

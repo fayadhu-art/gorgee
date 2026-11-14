@@ -69,15 +69,17 @@ export function Scan({ name, cat }: { name?: string; cat?: Category }) {
       id: uid(), kind: 'commerce', name: r?.name || name || '', category: cat && cat !== 'maison' ? cat : 'soda', traits: [], capacityMl: r?.capacityMl,
       basis: r?.basis ?? { kind: '100ml' }, values, alcoholPct: { missing: 'non_applicable' },
     }
-    back(); go({ s: 'product', draft, scanned: Object.keys(values).length })
+    back()
+    if (cat === 'the') go({ s: 'tea', kind: 'the', name: draft.name || undefined })
+    else go({ s: 'product', draft, scanned: Object.keys(values).length })
   }
   return (
     <>
-      <Bar title="Photographier la boisson" onBack={back} />
+      <Bar title={cat === 'the' ? 'Photographier le thé' : 'Photographier la boisson'} onBack={back} />
       <main className="main">
-        <p className="help" style={{ padding: '0 4px' }}>Les deux photos sont demandées pour chaque nouvelle boisson du commerce. L’appli lit le nom et le tableau nutritionnel, puis préremplit la fiche. Tu vérifies tout avant d’enregistrer.</p>
+        <p className="help" style={{ padding: '0 4px' }}>{cat === 'the' ? 'Les deux photos sont demandées pour chaque nouveau thé. L’appli lit le nom, puis tu indiques la composition une fois pour toutes.' : 'Les deux photos sont demandées pour chaque nouvelle boisson du commerce. L’appli lit le nom et le tableau nutritionnel, puis préremplit la fiche.'} Tu vérifies tout avant d’enregistrer.</p>
         <Shot n={1} title="De face" help="Le nom de la boisson bien visible" file={front} onFile={setFront} />
-        <Shot n={2} title="Tableau nutritionnel" help="À plat, net, sans reflet" file={label} onFile={setLabel} />
+        <Shot n={2} title={cat === 'the' ? 'Composition du paquet' : 'Tableau nutritionnel'} help="À plat, net, sans reflet" file={label} onFile={setLabel} />
         {step && <StateBox k="information" title="Lecture en cours"><p>{step} Cela peut prendre une vingtaine de secondes la première fois.</p></StateBox>}
         <p className="note"><Icon n="info" />La lecture se fait sur ton téléphone. Les photos ne sont ni envoyées ni gardées.</p>
       </main>
