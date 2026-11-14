@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { dayKey, fmt } from '../domain/calc'
-import { sessionNeed, waterReference, AFTER_WINDOW_H } from '../domain/hydration'
+import { dayWater, sessionNeed, AFTER_WINDOW_H } from '../domain/hydration'
 import { uid } from '../domain/store'
 import { Session } from '../domain/types'
 import { Bar, Icon, StateBox, useApp } from './parts'
@@ -10,16 +10,21 @@ const pad = (n: number) => String(n).padStart(2, '0')
 const hm = (iso: string) => new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
 const L = (ml: number) => `${fmt(ml / 1000, 2)} L`
 
-export function WaterCard({ volume }: { volume: number }) {
+export function WaterCard({ volume, day }: { volume: number; day: string }) {
   const { st, go } = useApp()
-  const ref = waterReference(st.profile)
+  const sessions = (st.sessions ?? []).filter((s) => dayKey(s.start) === day)
+  const w = dayWater(st.profile, volume, sessions, st.intakes)
+  if (!w.ok) return <section className="card"><span className="lbl">Eau du jour</span><p className="help">{w.reason} <button className="a" onClick={() => go({ s: 'settings' })}>Ouvrir le profil</button></p></section>
+  const target = w.drinksTargetMl + w.sportMl
   return (
-    <section className="card">
-      <span className="lbl">Repère eau du jour</span>
-      {ref.ok ? <>
-        <div><span className="big num" style={{ fontSize: 34 }}>{fmt(ref.litres, 1)} L</span><span className="unit">d’eau totale</span></div>
-        <p className="help">Pour {st.profile.sex === 'femme' ? 'une femme' : 'un homme'} adulte, boissons et aliments compris, en climat et activité modérés. Tes boissons enregistrées : <b className="num" style={{ color: 'var(--ink)' }}>{L(volume)}</b>. L’eau des aliments n’est pas comptée ; la chaleur et le sport augmentent les besoins.</p>
-      </> : <p className="help">{ref.reason} <button className="a" onClick={() => go({ s: 'settings' })}>Ouvrir le profil</button></p>}
+    <section className="card" aria-labelledby="eau">
+      <span className="lbl" id="eau">Eau du jour</span>
+      {w.remainingMl > 0
+        ? <div><span className="sub" style={{ display: 'block', fontSize: 15, color: 'var(--ink2)', fontWeight: 600 }}>Il te reste à boire</span><span className="big num" style={{ color: 'var(--accent-text)' }}>{L(w.remainingMl)}</span></div>
+        : <div><span className="big num" style={{ fontSize: 34, color: 'var(--ok, #248A3D)' }}>Repère atteint</span></div>}
+      <div className="meter" role="img" aria-label={`${L(volume)} bus sur ${L(target)}`}><i style={{ width: `${Math.min(100, (volume / target) * 100)}%` }} /></div>
+      <p className="help"><b className="num" style={{ color: 'var(--ink)' }}>{L(volume)}</b> bus sur <b className="num" style={{ color: 'var(--ink)' }}>{L(target)}</b> : {L(w.drinksTargetMl)} de boissons par jour{w.sportMl ? ` + ${L(w.sportMl)} pour compenser ton sport` : ''}.</p>
+      <p className="note"><Icon n="info" />Repère EFSA pour {st.profile.sex === 'femme' ? 'une femme' : 'un homme'} adulte ({fmt(st.profile.sex === 'femme' ? 2 : 2.5, 1)} L d’eau au total), dont environ 80 % viennent des boissons et 20 % des aliments. Toutes tes boissons comptent. La chaleur augmente les besoins ; un repère, pas une prescription.</p>
     </section>
   )
 }

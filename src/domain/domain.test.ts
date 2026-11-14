@@ -1,7 +1,7 @@
 import { dayKey, dayStats, intakeValue, per100, fmt, lastDays } from './calc'
 import { checkIngredient, checkRecipe, recipeNutrient } from './recipe'
 import { applies, evaluate, DEMO_RULES as RULES, RULES as REAL, syncNotifications, dayScope, Rule } from './rules'
-import { waterReference, sessionNeed } from './hydration'
+import { waterReference, sessionNeed, dayWater } from './hydration'
 import { Drink, Ingredient, Intake, isKnown, Recipe, State } from './types'
 
 const soda: Drink = {
@@ -269,5 +269,23 @@ describe('eau et sport', () => {
   test('prise de poids ou écart aberrant : pas de quantité', () => {
     expect(sessionNeed({ ...s, weightBeforeKg: 70, weightAfterKg: 70.2 }, []).ok).toBe(false)
     expect(sessionNeed({ ...s, weightBeforeKg: 80, weightAfterKg: 70 }, []).ok).toBe(false)
+  })
+})
+
+describe('eau restante du jour', () => {
+  const homme = { age: 34, ageRange: '18_64', sex: 'homme', weightKg: 72 } as any
+  test('repère boissons = 80 % de l’eau totale EFSA, moins ce qui est bu', () => {
+    const r = dayWater(homme, 1200, [], [])
+    expect(r).toEqual({ ok: true, drinksTargetMl: 2000, sportMl: 0, drankMl: 1200, remainingMl: 800 })
+  })
+  test('une séance pesée ajoute 1,5 L par kg perdu ; jamais en dessous de zéro', () => {
+    const s = { id: 's', sport: 'Course', start: '2026-11-14T06:00:00Z', durationMin: 60, intensity: 'moderee', weightBeforeKg: 72, weightAfterKg: 71.6 } as any
+    const r = dayWater(homme, 1000, [s], [])
+    expect(r.ok && r.sportMl).toBe(600)
+    expect(r.ok && r.remainingMl).toBe(1600)
+    expect(dayWater(homme, 5000, [], []).ok && (dayWater(homme, 5000, [], []) as any).remainingMl).toBe(0)
+  })
+  test('sans tranche d’âge ou sexe : pas de chiffre', () => {
+    expect(dayWater({ ...homme, ageRange: undefined }, 0, [], []).ok).toBe(false)
   })
 })

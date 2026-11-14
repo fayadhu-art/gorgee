@@ -59,3 +59,19 @@ export function sessionNeed(s: Session, intakes: Intake[]): SessionNeed {
   if (lossKg > 5) return { ok: false, reason: 'Écart de plus de 5 kg : vérifie les pesées.', drankMl, windowEnd: we }
   return { ok: true, lossKg, targetMl: lossKg * 1500, drankMl, windowEnd: we }
 }
+
+/** Part de l'eau totale apportée par les boissons dans une alimentation moyenne : 80 % (Commission européenne, portail Knowledge4Policy, d'après l'EFSA). */
+export const DRINK_SHARE = 0.8
+
+export type DayWater =
+  | { ok: true; drinksTargetMl: number; sportMl: number; drankMl: number; remainingMl: number }
+  | { ok: false; reason: string }
+
+/** Ce qu'il reste à boire dans la journée : repère boissons (eau totale × 80 %) + compensation des séances pesées, moins les boissons enregistrées. */
+export function dayWater(p: Profile, drankMl: number, sessionsOfDay: Session[], intakes: Intake[]): DayWater {
+  const ref = waterReference(p)
+  if (!ref.ok) return ref
+  const drinksTargetMl = Math.round(ref.litres * 1000 * DRINK_SHARE)
+  const sportMl = sessionsOfDay.reduce((a, s) => { const n = sessionNeed(s, intakes); return a + (n.ok ? Math.round(n.targetMl) : 0) }, 0)
+  return { ok: true, drinksTargetMl, sportMl, drankMl, remainingMl: Math.max(0, drinksTargetMl + sportMl - drankMl) }
+}

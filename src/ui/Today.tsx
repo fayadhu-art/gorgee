@@ -47,6 +47,7 @@ export function Today({ day: d0 }: { day?: string }) {
           </>}
           <p className="note"><Icon n="info" />Ce volume ne mesure pas ton hydratation : l’eau des aliments et les boissons non saisies n’y sont pas.</p>
         </section>
+        <WaterCard volume={stats.volume} day={day} />
         <div className="grid2">
           {(['sucres', 'cafeine', 'energie_kcal'] as const).map((n) => {
             const tt = stats.totals[n]
@@ -74,7 +75,6 @@ export function Today({ day: d0 }: { day?: string }) {
             <StateBox k={f.rule.level} title={f.rule.title}><p>{f.text}</p><p className="help" style={{ marginTop: 4 }}>Voir le détail du repère</p></StateBox>
           </button>
         ))}
-        <WaterCard volume={stats.volume} />
         <SessionsCard day={day} />
         <section className="card" aria-labelledby="jr">
           <span className="lbl" id="jr">Journal</span>

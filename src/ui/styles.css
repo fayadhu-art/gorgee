@@ -191,3 +191,5 @@ textarea.inp{padding:12px 14px;min-height:84px;resize:vertical}
 .shot .m{display:flex;flex-direction:column;gap:2px;min-width:0}
 .shot .m b{font-size:16px}.shot .m small{color:var(--muted);font-size:14px}
 .grid2 .btn{font-size:15px;padding:0 10px}
+.meter{height:10px;border-radius:5px;background:var(--line);overflow:hidden}
+.meter i{display:block;height:100%;border-radius:5px;background:linear-gradient(90deg,#0A84FF,#5E5CE6)}
