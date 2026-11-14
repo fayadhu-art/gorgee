@@ -3,7 +3,8 @@ export type Source = 'etiquette' | 'base' | 'utilisateur' | 'estimation'
 // Raison pour laquelle une valeur n'est pas connue. Jamais remplacée par zéro.
 export type Missing = 'non_indique' | 'inconnu' | 'non_applicable'
 
-export type Known = { v: number; src: Source }
+/** lt : valeur affichée « < v » sur l'étiquette (maximum, pas valeur exacte). */
+export type Known = { v: number; src: Source; lt?: true }
 export type Val = Known | { missing: Missing }
 
 export const isKnown = (x: Val | undefined): x is Known => !!x && 'v' in x

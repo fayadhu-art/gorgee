@@ -4,32 +4,37 @@ import type { Nutrient } from './types'
 
 export interface Parsed {
   values: Partial<Record<Nutrient, number>>
+  /** Valeurs écrites « < x » : x est un maximum. */
+  lt: Partial<Record<Nutrient, true>>
   basis?: { kind: '100ml' } | { kind: 'portion'; portionMl: number }
   capacityMl?: number
 }
 
 const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
 // Corrige les confusions OCR courantes dans les nombres (O→0, l/I→1) et la virgule décimale.
-const num = (s: string) => Number(s.replace(/[oO]/g, '0').replace(/[lI|]/g, '1').replace(',', '.'))
+// « 007 » ou « 05 » (séparateur perdu) : un nombre qui commence par 0 est décimal.
+const num = (s: string) => { const t = s.replace(/[oO]/g, '0').replace(/[lI|]/g, '1').replace(',', '.'); return Number(/^0\d/.test(t) ? '0.' + t.slice(1) : t) }
 const N = '(<\\s*)?([0-9oOlI|]+(?:[.,][0-9oO]+)?)'
 
 const LINES: [Nutrient, RegExp, string][] = [
-  ['ags', /(acides? gras )?satur/, 'g'],
-  ['matieres_grasses', /mati.res? grasses|lipides/, 'g'],
-  ['sucres', /sucres?/, 'g'],
-  ['glucides', /glucides/, 'g'],
-  ['proteines', /prot.ines/, 'g'],
-  ['sel', /\bsel\b|\bsalt\b/, 'g'],
-  ['cafeine', /caf.ine/, 'mg'],
+  ['ags', /satur/, 'g'],
+  ['matieres_grasses', /mati.res? grasses|lipides|\bfats?\b/, 'g'],
+  // Avant « glucides » : « Carbohydrates of which sugars 11 g » donne les sucres, pas les glucides.
+  ['sucres', /sucres?|sugars?/, 'g'],
+  ['glucides', /glucides|carbohydrates?/, 'g'],
+  ['proteines', /prot.ines?|protein/, 'g'],
+  ['sel', /\bsel\b|\bsalt\b|\bsait\b/, 'g'],
+  ['cafeine', /caf+.ine/, 'mg'],
 ]
 
 export function parseNutrition(text: string): Parsed {
   const values: Parsed['values'] = {}
+  const lt: Parsed['lt'] = {}
   const lines = norm(text).split(/\n+/)
   for (const l of lines) {
     // Énergie : « 180 kJ / 42 kcal » dans n'importe quel ordre.
-    if (/energie|kcal|kj/.test(l)) {
-      const kcal = l.match(new RegExp(N + '\\s*kcal'))
+    if (/energ|kcal|kj/.test(l)) {
+      const kcal = l.match(new RegExp(N + '\\s*kc'))
       const kj = l.match(new RegExp(N + '\\s*kj'))
       if (kcal && !kcal[1] && values.energie_kcal === undefined) values.energie_kcal = num(kcal[2])
       if (kj && !kj[1] && values.energie_kj === undefined) values.energie_kj = num(kj[2])
@@ -38,16 +43,17 @@ export function parseNutrition(text: string): Parsed {
     for (const [n, re, unit] of LINES) {
       if (values[n] !== undefined || !re.test(l)) continue
       // « dont sucres » ne doit pas être pris pour « glucides » et inversement : première règle qui correspond.
-      const m = l.match(new RegExp(N + '\\s*' + unit + '\\b'))
-      // « < 0,5 g » n'est pas une valeur exacte : laissé à saisir.
-      if (m && !m[1]) values[n] = num(m[2])
+      let m = l.match(new RegExp(N + '\\s*' + unit + '\\b'))
+      // L'OCR lit souvent le « g » final comme « 9 » ou « q » : « 0.179 » → 0,17 g (à vérifier par l'utilisateur).
+      if (!m && unit === 'g') { const g = l.match(/(<\s*)?(\d+[.,]?\d*)[9q]\b/); if (g && g[2].length >= 2) m = g }
+      if (m) { values[n] = num(m[2]); if (m[1]) lt[n] = true }
       break
     }
   }
-  for (const k of Object.keys(values) as Nutrient[]) if (!Number.isFinite(values[k]!)) delete values[k]
+  for (const k of Object.keys(values) as Nutrient[]) if (!Number.isFinite(values[k]!)) { delete values[k]; delete lt[k] }
   const t = norm(text)
   const portion = t.match(/(?:par|pour|per) (?:portion|verre|canette|bouteille)?\s*(?:de\s*)?\(?(\d{2,4})\s*ml/)
-  const basis: Parsed['basis'] = /(pour|per|par) 100\s*m[li1]/.test(t) ? { kind: '100ml' } : portion ? { kind: 'portion', portionMl: Number(portion[1]) } : undefined
+  const basis: Parsed['basis'] = /(pour|per|par|for) 100\s*m/.test(t) ? { kind: '100ml' } : portion ? { kind: 'portion', portionMl: Number(portion[1]) } : undefined
   const cap = t.match(/(\d{2,4}(?:[.,]\d+)?)\s*(ml|cl|l)\b(?! *\/)/g)
   let capacityMl: number | undefined
   for (const c of cap ?? []) {
@@ -58,11 +64,12 @@ export function parseNutrition(text: string): Parsed {
   // Valeurs impossibles pour 100 ml (virgule perdue à la lecture : « 10,6 » lu « 106 ») : écartées, à saisir.
   if (!basis || basis.kind === '100ml') {
     const MAX: Partial<Record<Nutrient, number>> = { energie_kcal: 900, energie_kj: 3800, cafeine: 1000 }
-    for (const k of Object.keys(values) as Nutrient[]) if (values[k]! > (MAX[k] ?? 100)) delete values[k]
+    for (const k of Object.keys(values) as Nutrient[]) if (values[k]! > (MAX[k] ?? 100)) { delete values[k]; delete lt[k] }
     if (values.sucres !== undefined && values.glucides !== undefined && values.sucres > values.glucides) { delete values.sucres; delete values.glucides }
     if (values.ags !== undefined && values.matieres_grasses !== undefined && values.ags > values.matieres_grasses) { delete values.ags; delete values.matieres_grasses }
   }
-  return { values, basis, capacityMl }
+  for (const k of Object.keys(lt) as Nutrient[]) if (values[k] === undefined) delete lt[k]
+  return { values, lt, basis, capacityMl }
 }
 
 export interface OcrLine { text: string; height: number; confidence: number }

@@ -9,7 +9,7 @@ const dayLabel = (d: string) => { const t = new Date(d + 'T12:00:00').toLocaleDa
 const time = (iso: string) => new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
 
 const dig = (n: Nutrient) => (n === 'energie_kcal' || n === 'cafeine' ? 0 : 1)
-const totalTxt = (t: Total, n: Nutrient) => (t.known ? `${t.unknown ? '≥ ' : ''}${fmt(t.v, dig(n))} ${NUTRIENTS[n].unit}` : t.unknown ? 'Inconnu' : '—')
+const totalTxt = (t: Total, n: Nutrient) => (t.known ? `${t.unknown ? '≥ ' : t.upper ? '≤ ' : ''}${fmt(t.v, dig(n))} ${NUTRIENTS[n].unit}` : t.unknown ? 'Inconnu' : '—')
 
 export function TotalTag({ unknown, estimated }: { unknown: number; estimated?: boolean }) {
   if (unknown) return <span className="tag t-part"><Icon n="part" />Partiel · {unknown} inconnue{unknown > 1 ? 's' : ''}</span>
@@ -68,7 +68,7 @@ export function Today({ day: d0 }: { day?: string }) {
         {stats.count > 0 && <section className="card" aria-labelledby="ap">
           <span className="lbl" id="ap">Apports du jour</span>
           <table className="tbl"><tbody>{SHOWN.map((n) => <tr key={n}><td>{nlabel(n)}</td><td>{totalTxt(stats.totals[n], n)}</td></tr>)}</tbody></table>
-          <p className="help">« ≥ » : au moins une boisson n’a pas cette valeur, le total est un minimum.</p>
+          <p className="help">« ≥ » : au moins une boisson n’a pas cette valeur, le total est un minimum. « ≤ » : l’étiquette indique « moins de », le total est un maximum.</p>
         </section>}
         {a.findings.map((f) => (
           <button key={f.key} className="a" style={{ textDecoration: 'none' }} onClick={() => go({ s: 'rule', ruleId: f.rule.id })}>

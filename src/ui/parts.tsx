@@ -1,3 +1,4 @@
+import type { Known } from '../domain/types'
 import { createContext, ReactNode, useContext } from 'react'
 import { Drink, Intake, Missing, Source, State, Val, CATEGORIES, Category } from '../domain/types'
 import type { AdviceState } from '../domain/rules'
@@ -30,7 +31,7 @@ export const catLabel = (c: Category) => CATEGORIES[c]
 
 export type Screen =
   | { s: 'today'; day?: string } | { s: 'choose'; cat?: Category } | { s: 'intake'; drinkId: string; intakeId?: string }
-  | { s: 'advice'; intakeId: string } | { s: 'product'; drinkId?: string; cat?: Category; name?: string; draft?: Drink; scanned?: number } | { s: 'scan'; name?: string; cat?: Category } | { s: 'tea'; drinkId?: string; kind?: 'the' | 'infusion'; name?: string }
+  | { s: 'advice'; intakeId: string } | { s: 'product'; drinkId?: string; cat?: Category; name?: string; draft?: Drink; scanned?: number; scanErr?: string } | { s: 'scan'; name?: string; cat?: Category } | { s: 'tea'; drinkId?: string; kind?: 'the' | 'infusion'; name?: string }
   | { s: 'recipe'; drinkId?: string } | { s: 'library' } | { s: 'drink'; drinkId: string } | { s: 'history' }
   | { s: 'rule'; ruleId: string } | { s: 'settings' } | { s: 'welcome' } | { s: 'sport'; id?: string }
 
@@ -97,8 +98,10 @@ export function ValInput({ id, label, unit, value, onChange, src }: { id: string
             const t = e.target.value.replace(',', '.').trim()
             if (t === '') return onChange(undefined)
             const n = Number(t)
-            if (Number.isFinite(n) && n >= 0) onChange({ v: n, src: known ? (value as { src: Source }).src : src })
+            if (Number.isFinite(n) && n >= 0) onChange({ v: n, src: known ? (value as { src: Source }).src : src, ...(known && (value as Known).lt ? { lt: true as const } : {}) })
           }} />
+        {known && <button type="button" className="chip lt" aria-pressed={!!(value as Known).lt} aria-label="Valeur inférieure à" title="Inférieur à (« < » sur l’étiquette)"
+          onClick={() => { const k = value as Known; onChange(k.lt ? { v: k.v, src: k.src } : { ...k, lt: true }) }}>&lt;</button>}
         <select className="inp" aria-label={`Statut de ${label}`} value={mode}
           onChange={(e) => { const m = e.target.value; if (m === '') onChange(undefined); else if (m !== 'v') onChange({ missing: m as Missing }) }}>
           {known ? <option value="v">Valeur saisie</option> : <option value="">À renseigner</option>}

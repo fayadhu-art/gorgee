@@ -193,3 +193,4 @@ textarea.inp{padding:12px 14px;min-height:84px;resize:vertical}
 .grid2 .btn{font-size:15px;padding:0 10px}
 .meter{height:10px;border-radius:5px;background:var(--line);overflow:hidden}
 .meter i{display:block;height:100%;border-radius:5px;background:linear-gradient(90deg,#0A84FF,#5E5CE6)}
+.valrow .ctl .lt{min-width:44px;padding:0;justify-content:center;font-weight:700;flex:none}

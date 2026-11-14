@@ -13,7 +13,7 @@ export function per100(d: Drink, n: Nutrient): Val {
   if (!isKnown(x)) return x
   if (d.basis.kind === 'portion') {
     if (!(d.basis.portionMl > 0)) return { missing: 'inconnu' }
-    return { v: (x.v * 100) / d.basis.portionMl, src: x.src }
+    return { ...x, v: (x.v * 100) / d.basis.portionMl }
   }
   return x
 }
@@ -21,7 +21,7 @@ export function per100(d: Drink, n: Nutrient): Val {
 /** apport consommé = valeur pour 100 ml × volume consommé / 100 */
 export function intakeValue(d: Drink, n: Nutrient, ml: number): Val {
   const x = per100(d, n)
-  return isKnown(x) ? { v: (x.v * ml) / 100, src: x.src } : x
+  return isKnown(x) ? { ...x, v: (x.v * ml) / 100 } : x
 }
 
 export interface Total {
@@ -29,6 +29,7 @@ export interface Total {
   known: number // nombre de prises avec valeur connue
   unknown: number // prises dont la valeur est inconnue ou non indiquée
   estimated: boolean // au moins une valeur estimée
+  upper?: boolean // au moins une valeur « < x » : le total est un maximum pour ces prises
 }
 
 export const TRACKED: Nutrient[] = ['sucres', 'energie_kcal', 'cafeine']
@@ -63,7 +64,7 @@ export function dayStats(intakes: Intake[], drinks: Drink[], day: string, tz?: s
     for (const n of SHOWN) {
       const t = totals[n]
       const x = d ? intakeValue(d, n, i.ml) : ({ missing: 'inconnu' } as Val)
-      if (isKnown(x)) { t.v += x.v; t.known++; if (x.src === 'estimation') t.estimated = true }
+      if (isKnown(x)) { t.v += x.v; t.known++; if (x.src === 'estimation') t.estimated = true; if (x.lt) t.upper = true }
       else if (x.missing !== 'non_applicable') t.unknown++
     }
   }
@@ -78,7 +79,7 @@ export function fmt(v: number, digits = 1): string {
 
 export function fmtVal(x: Val | undefined, unit: string, digits = 1): string {
   if (!x) return 'Inconnu'
-  if (isKnown(x)) return `${fmt(x.v, digits)} ${unit}`
+  if (isKnown(x)) return `${x.lt ? '< ' : ''}${fmt(x.v, digits)} ${unit}`
   return MISSING_LABEL[x.missing]
 }
 

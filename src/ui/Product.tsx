@@ -24,7 +24,7 @@ function TextOrStatus({ id, label, value, onChange, area }: { id: string; label:
   )
 }
 
-export function ProductForm({ drinkId, cat, name, draft, scanned }: { drinkId?: string; cat?: Category; name?: string; draft?: Drink; scanned?: number }) {
+export function ProductForm({ drinkId, cat, name, draft, scanned, scanErr }: { drinkId?: string; cat?: Category; name?: string; draft?: Drink; scanned?: number; scanErr?: string }) {
   const { st, set, back, go, toast } = useApp()
   const ex = st.drinks.find((d) => d.id === drinkId)
   const [step, setStep] = useState(0)
@@ -55,7 +55,7 @@ export function ProductForm({ drinkId, cat, name, draft, scanned }: { drinkId?: 
       <main className="main">
         <div className="steps" aria-hidden="true">{STEPS.map((s, i) => <i key={s} className={i <= step ? 'on' : ''} />)}</div>
         {scanned !== undefined && step < 2 && <StateBox k={scanned ? 'information' : 'incomplete'} title={scanned ? `${scanned} valeur${scanned > 1 ? 's' : ''} lue${scanned > 1 ? 's' : ''} sur tes photos` : 'Aucune valeur lue'}>
-          <p>{scanned ? 'Compare chaque champ avec l’étiquette et corrige si besoin. Une case restée vide sera notée « Inconnu », jamais zéro.' : 'Saisis les valeurs à la main, ou reprends une photo plus nette du tableau.'}</p></StateBox>}
+          <p>{scanned ? 'Compare chaque champ avec l’étiquette et corrige si besoin. Une case restée vide sera notée « Inconnu », jamais zéro.' : 'Saisis les valeurs à la main, ou reprends une photo plus nette du tableau.'}</p>{scanErr && <p className="help">Détail technique : {scanErr}</p>}{Object.values(d.values).some((v) => v && 'lt' in v) && <p className="help">Les valeurs « &lt; » de l’étiquette sont gardées comme maximum (bouton « &lt; » allumé).</p>}</StateBox>}
         {step === 0 && <>
           <div className="field"><label htmlFor="nm">Nom</label><input id="nm" className="inp" value={d.name} onChange={(e) => up({ name: e.target.value })} placeholder="Ex. Limonade citron" /></div>
           <div className="field"><label htmlFor="br">Marque <span className="help">(facultatif)</span></label><input id="br" className="inp" value={d.brand ?? ''} onChange={(e) => up({ brand: e.target.value || undefined })} /></div>
