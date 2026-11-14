@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { OcrLine, parseNutrition, pickName } from '../domain/ocr'
 import { uid } from '../domain/store'
-import { Drink, Nutrient } from '../domain/types'
+import { Category, Drink, Nutrient } from '../domain/types'
 import { Bar, Icon, StateBox, useApp } from './parts'
 
 // Fichiers de lecture servis avec l'appli (hors ligne) ; la démo peut pointer vers un CDN au build.
@@ -54,39 +54,34 @@ function Shot({ n, title, help, file, onFile }: { n: number; title: string; help
   )
 }
 
-export function Scan() {
+export function Scan({ name, cat }: { name?: string; cat?: Category }) {
   const { back, go } = useApp()
   const [front, setFront] = useState<File>()
   const [label, setLabel] = useState<File>()
   const [step, setStep] = useState<string>()
-  const [err, setErr] = useState<string>()
   const run = async () => {
-    setErr(undefined)
-    try {
-      const r = await read(front, label, setStep)
-      const values: Drink['values'] = {}
-      for (const [k, v] of Object.entries(r.values) as [Nutrient, number][]) values[k] = { v, src: 'etiquette' }
-      const draft: Drink = {
-        id: uid(), kind: 'commerce', name: r.name ?? '', category: 'soda', traits: [], capacityMl: r.capacityMl,
-        basis: r.basis ?? { kind: '100ml' }, values, alcoholPct: { missing: 'non_applicable' },
-      }
-      back(); go({ s: 'product', draft, scanned: Object.keys(values).length })
-    } catch (e) {
-      setErr('La lecture a échoué. Réessaie avec une photo plus nette, ou saisis la boisson à la main.')
-    } finally { setStep(undefined) }
+    let r: Awaited<ReturnType<typeof read>> | undefined
+    try { r = await read(front, label, setStep) } catch { /* lecture impossible : la fiche s'ouvre vide, à remplir depuis l'étiquette */ }
+    setStep(undefined)
+    const values: Drink['values'] = {}
+    for (const [k, v] of Object.entries(r?.values ?? {}) as [Nutrient, number][]) values[k] = { v, src: 'etiquette' }
+    const draft: Drink = {
+      id: uid(), kind: 'commerce', name: r?.name || name || '', category: cat && cat !== 'maison' ? cat : 'soda', traits: [], capacityMl: r?.capacityMl,
+      basis: r?.basis ?? { kind: '100ml' }, values, alcoholPct: { missing: 'non_applicable' },
+    }
+    back(); go({ s: 'product', draft, scanned: Object.keys(values).length })
   }
   return (
     <>
       <Bar title="Photographier la boisson" onBack={back} />
       <main className="main">
-        <p className="help" style={{ padding: '0 4px' }}>Deux photos suffisent. L’appli lit le nom et le tableau nutritionnel, puis préremplit la fiche. Tu vérifies tout avant d’enregistrer.</p>
+        <p className="help" style={{ padding: '0 4px' }}>Les deux photos sont demandées pour chaque nouvelle boisson du commerce. L’appli lit le nom et le tableau nutritionnel, puis préremplit la fiche. Tu vérifies tout avant d’enregistrer.</p>
         <Shot n={1} title="De face" help="Le nom de la boisson bien visible" file={front} onFile={setFront} />
         <Shot n={2} title="Tableau nutritionnel" help="À plat, net, sans reflet" file={label} onFile={setLabel} />
         {step && <StateBox k="information" title="Lecture en cours"><p>{step} Cela peut prendre une vingtaine de secondes la première fois.</p></StateBox>}
-        {err && <StateBox k="incomplete"><p>{err}</p></StateBox>}
         <p className="note"><Icon n="info" />La lecture se fait sur ton téléphone. Les photos ne sont ni envoyées ni gardées.</p>
       </main>
-      <div className="fab"><button className="btn" disabled={(!front && !label) || !!step} onClick={run}><Icon n="check" />{step ? 'Lecture…' : 'Lire les photos'}</button></div>
+      <div className="fab"><button className="btn" disabled={!front || !label || !!step} onClick={run}><Icon n="check" />{step ? 'Lecture…' : 'Lire les photos'}</button></div>
     </>
   )
 }

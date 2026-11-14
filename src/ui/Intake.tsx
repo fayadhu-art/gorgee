@@ -14,7 +14,8 @@ const norm = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').t
 export function Choose({ cat }: { cat?: Category }) {
   const { st, go, back, addIntake, toast } = useApp()
   const [q, setQ] = useState('')
-  const usable = st.drinks.filter((d) => d.status !== 'brouillon')
+  // Sans photo, seuls restent les génériques thé, café, eau (et infusion) ; les anciens « Jus », « Lait » génériques sont masqués.
+  const usable = st.drinks.filter((d) => d.status !== 'brouillon' && !(d.kind === 'generique' && (d.category === 'jus' || d.category === 'lait_vegetale')))
   // Habituelles : favoris + boissons les plus saisies.
   const freq = useMemo(() => {
     const c = new Map<string, number>()
@@ -54,15 +55,12 @@ export function Choose({ cat }: { cat?: Category }) {
       <Bar title={cat ? CATEGORIES[cat] : 'Ajouter une boisson'} onBack={back} close={!cat} />
       <main className="main">
         <label className="search"><Icon n="search" /><input id="q" type="search" enterKeyHint="search" autoComplete="off" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Nom, marque ou type de boisson" aria-label="Rechercher une boisson" /></label>
-        <div className="grid2">
-        <button className="btn" onClick={() => go({ s: 'scan' })}><Icon n="camera" />Photographier</button>
-        <button className="btn sec" onClick={() => go({ s: 'product', cat, name: q.trim() || undefined })}><Icon n="plus" />{q.trim() ? `Créer « ${q.trim()} »` : 'Saisir à la main'}</button>
-        </div>
+        <button className="btn" onClick={() => go({ s: 'scan', cat, name: q.trim() || undefined })}><Icon n="camera" />{q.trim() ? `Nouvelle boisson « ${q.trim()} » : 2 photos` : 'Nouvelle boisson du commerce : 2 photos'}</button>
         {(ql || cat) ? (
           <div className="field">
             <span className="lbl">{results.length} résultat{results.length > 1 ? 's' : ''}</span>
             {results.length > 0 && <div className="list">{results.map((d) => <Item key={d.id} d={d} />)}</div>}
-            {!results.length && <p className="help">Aucune boisson enregistrée ne correspond. Le bouton ci-dessus crée sa fiche avec le nom déjà rempli.</p>}
+            {!results.length && <p className="help">Aucune boisson enregistrée ne correspond. Prends-la en photo avec le bouton ci-dessus.</p>}
           </div>
         ) : (
           <>
@@ -76,7 +74,7 @@ export function Choose({ cat }: { cat?: Category }) {
           </>
         )}
         <div className="list">
-        <button className="link" onClick={() => go({ s: 'product', cat })}><Icon n="box" />Créer la fiche d’un produit du commerce</button>
+        <button className="link" onClick={() => go({ s: 'scan', cat })}><Icon n="camera" />Ajouter une boisson du commerce (2 photos)</button>
         <button className="link" onClick={() => go({ s: 'tea' })}><Icon n="tea" />Créer un thé ou une infusion</button>
         <button className="link" onClick={() => go({ s: 'recipe' })}><Icon n="doc" />Créer une recette maison sans sucre ajouté</button>
         </div>

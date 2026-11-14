@@ -42,8 +42,6 @@ export const CATALOGUE: Drink[] = [
   generic('g-cafe', 'Café', 'cafe', ['cafeinee'], { cafeine: UNK }),
   generic('g-the', 'Thé', 'the', ['cafeinee'], { cafeine: UNK }),
   generic('g-infusion', 'Infusion', 'infusion'),
-  generic('g-jus', 'Jus de fruits', 'jus'),
-  generic('g-lait', 'Lait', 'lait_vegetale'),
 ]
 
 export const emptyState = (): State => ({
