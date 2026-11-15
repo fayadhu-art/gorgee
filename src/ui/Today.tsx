@@ -68,7 +68,7 @@ export function Today({ day: d0 }: { day?: string }) {
     toast(`${q.d.name} : ${q.ml} ml ajoutés`)
   }
   // Fiches bues ce jour-là dont il manque des valeurs : c'est ce qui rend les apports partiels.
-  const incomplete = [...new Set(stats.intakes.map((i) => byId.get(i.drinkId)))].filter((d): d is Drink => !!d && SHOWN.some((n) => { const x = per100(d, n); return !isKnown(x) && x.missing !== 'non_applicable' }))
+  const incomplete = [...new Set(stats.intakes.map((i) => byId.get(i.drinkId)))].filter((d): d is Drink => !!d && SHOWN.some((n) => { const x = per100(d, n); return !isKnown(x) && x.missing !== 'non_applicable' && x.missing !== 'non_indique' }))
   const editDrink = (d: Drink) => go(d.kind === 'the' ? { s: 'tea', drinkId: d.id } : d.kind === 'recette' ? { s: 'recipe', drinkId: d.id } : { s: 'product', drinkId: d.id, step: 1 })
   const partial = SHOWN.some((n) => stats.totals[n].unknown > 0)
   return (
@@ -122,7 +122,7 @@ export function Today({ day: d0 }: { day?: string }) {
         {incomplete.length > 0 && <>
           <div className="sect">Fiches à compléter</div>
           <section className="list">
-            {incomplete.map((d) => { const miss = SHOWN.filter((n) => { const x = per100(d, n); return !isKnown(x) && x.missing !== 'non_applicable' }); return (
+            {incomplete.map((d) => { const miss = SHOWN.filter((n) => { const x = per100(d, n); return !isKnown(x) && x.missing !== 'non_applicable' && x.missing !== 'non_indique' }); return (
               <button className="row" key={d.id} onClick={() => editDrink(d)}>
                 <span className="ic" style={{ background: 'var(--warn, #FF9F0A)' }}><Icon n="edit" /></span>
                 <span className="m"><b>{d.name}</b><small>Manque : {miss.map((n) => nlabel(n).toLowerCase()).join(', ')}</small></span>
