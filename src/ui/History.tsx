@@ -49,15 +49,6 @@ export function History() {
             ))}
           </div>
         </section>
-        <div className="sect">Cumuls sur {span} jours</div>
-        <section className="list">
-          {(['sucres', 'cafeine', 'energie_kcal'] as const).map((n) => { const t = sum(n); return (
-            <div className="row" key={n} style={{ cursor: 'default' }}>
-              <span className="m"><b>{n === 'sucres' ? 'Sucres totaux connus' : `${NUTRIENTS[n].label} connue`}</b><small>{t.u ? `${t.u} boisson${t.u > 1 ? 's' : ''} sans valeur : total partiel` : 'Toutes les valeurs connues'}</small></span>
-              <span className="q num" style={{ color: 'var(--ink)', fontWeight: 600 }}>{fmt(t.v, 0)} {NUTRIENTS[n].unit}</span>
-            </div>
-          ) })}
-        </section>
         <div className="sect">Jours</div>
         <section className="list">
           {[...stats].reverse().filter((s) => s.count).map((s) => (

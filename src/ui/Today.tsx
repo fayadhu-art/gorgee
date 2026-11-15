@@ -1,6 +1,7 @@
+import { useState } from 'react'
 import { dayKey, fmt, fmtVal, intakeValue, lastDays, per100, SHOWN, Total } from '../domain/calc'
 import { dayWater } from '../domain/hydration'
-import { applies, evaluate, isActive, RULES } from '../domain/rules'
+import { applies, evaluate, Finding, isActive, RULES } from '../domain/rules'
 import { uid } from '../domain/store'
 import { CATEGORIES, Category, Drink, isKnown, nlabel, Nutrient, NUTRIENTS, State } from '../domain/types'
 import { SessionsCard } from './Sport'
@@ -14,37 +15,22 @@ const dig = (n: Nutrient) => (n === 'energie_kcal' || n === 'cafeine' ? 0 : 1)
 const totalTxt = (t: Total, n: Nutrient) => (t.known ? `${t.unknown ? '≥ ' : t.upper ? '≤ ' : ''}${fmt(t.v, dig(n))} ${NUTRIENTS[n].unit}` : t.unknown ? 'Inconnu' : '—')
 
 /** Repère journalier applicable au profil pour une substance (seuil du moteur de règles), sinon rien. */
-const dayLimit = (n: Nutrient, st: State) => RULES.find((r) => isActive(r) && r.period === 'jour' && r.substance === n && r.level !== 'vigilance' && applies(r, st.profile))?.trigger.value
+const dayLimit = (n: Nutrient, st: State) => { const v = RULES.filter((r) => isActive(r) && r.period === 'jour' && r.substance === n && r.level !== 'vigilance' && applies(r, st.profile)).map((r) => r.trigger.value); return v.length ? Math.min(...v) : undefined }
 
-function Ring({ pct }: { pct: number }) {
-  const R = 52, C = 2 * Math.PI * R
+function Left({ label, t, limit, n, onOver }: { label: string; t: Total; limit: number; n: Nutrient; onOver: string }) {
+  const u = NUTRIENTS[n].unit, over = t.v > limit
   return (
-    <svg className="ring" viewBox="0 0 120 120" aria-hidden="true">
-      <defs><linearGradient id="rg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#0A84FF" /><stop offset="1" stopColor="#5E5CE6" /></linearGradient></defs>
-      <circle cx="60" cy="60" r={R} className="rt" />
-      <circle cx="60" cy="60" r={R} className="rv" strokeDasharray={C} strokeDashoffset={C * (1 - Math.min(1, pct))} transform="rotate(-90 60 60)" />
-    </svg>
-  )
-}
-
-function Gauge({ n, t, limit }: { n: Nutrient; t: Total; limit?: number }) {
-  const { go } = useApp()
-  const u = NUTRIENTS[n].unit
-  const pct = limit ? Math.min(1, t.v / limit) : 0
-  const over = !!limit && t.v > limit
-  return (
-    <div className={'tile' + (over ? ' over' : '')}>
-      <span className="tl">{nlabel(n)}</span>
-      <span className="tv num">{t.unknown ? '≥ ' : t.upper ? '≤ ' : ''}{fmt(t.v, dig(n))}<small> {u}</small></span>
-      {limit ? <><div className="meter sm"><i style={{ width: `${pct * 100}%` }} /></div><span className="ts">repère {fmt(limit, 0)} {u}</span></>
-        : <span className="ts">{t.unknown ? '' : 'sur la journée'}</span>}
-      {t.unknown > 0 && <button className="ts warn" onClick={() => go({ s: 'library' })}>{t.unknown} boisson{t.unknown > 1 ? 's' : ''} sans valeur</button>}
+    <div className="left">
+      <div className="lr"><b>{label}</b><span className={'lv num' + (over ? ' over' : '')}>{over ? onOver : `encore ${fmt(limit - t.v, 0)} ${u}`}</span></div>
+      <div className={'meter sm' + (over ? ' over' : '')}><i style={{ width: `${Math.min(1, t.v / limit) * 100}%` }} /></div>
+      <small className="num">{t.unknown ? 'au moins ' : ''}{fmt(t.v, 0)} {u} sur {fmt(limit, 0)} {u}</small>
     </div>
   )
 }
 
 export function Today({ day: d0 }: { day?: string }) {
   const { st, go, addIntake, toast } = useApp()
+  const [detail, setDetail] = useState(false)
   const t = today()
   const day = d0 ?? t
   const a = evaluate(st, day)
@@ -52,11 +38,10 @@ export function Today({ day: d0 }: { day?: string }) {
   const byId = new Map(st.drinks.map((d) => [d.id, d]))
   const prev = lastDays(day, 2)[0]
   const next = lastDays(day, 1)[0] === t ? null : new Date(Date.UTC(+day.slice(0, 4), +day.slice(5, 7) - 1, +day.slice(8, 10) + 1)).toISOString().slice(0, 10)
-  const cats = Object.entries(stats.byCategory) as [Category, number][]
   const sessions = (st.sessions ?? []).filter((s) => dayKey(s.start) === day)
   const w = dayWater(st.profile, stats.volume, sessions, st.intakes)
   const target = w.ok ? w.drinksTargetMl + w.sportMl : 0
-  // Raccourcis : favoris puis boissons les plus saisies, avec la dernière quantité.
+  // Raccourcis : eau, favoris, puis boissons les plus saisies, avec la dernière quantité.
   const counts = new Map<string, number>()
   st.intakes.forEach((i) => counts.set(i.drinkId, (counts.get(i.drinkId) ?? 0) + 1))
   const quick = st.drinks.filter((d) => d.status !== 'brouillon' && (d.favorite || counts.has(d.id) || d.id === 'g-eau'))
@@ -67,10 +52,17 @@ export function Today({ day: d0 }: { day?: string }) {
     addIntake({ id: uid(), drinkId: q.d.id, ml: q.ml, at: at.toISOString(), containerId: q.containerId, additions: [] })
     toast(`${q.d.name} : ${q.ml} ml ajoutés`)
   }
-  // Fiches bues ce jour-là dont il manque des valeurs : c'est ce qui rend les apports partiels.
+  // Fiches bues ce jour-là dont il manque des valeurs : l'avis est alors partiel.
   const incomplete = [...new Set(stats.intakes.map((i) => byId.get(i.drinkId)))].filter((d): d is Drink => !!d && SHOWN.some((n) => { const x = per100(d, n); return !isKnown(x) && x.missing !== 'non_applicable' && x.missing !== 'non_indique' }))
   const editDrink = (d: Drink) => go(d.kind === 'the' ? { s: 'tea', drinkId: d.id } : d.kind === 'recette' ? { s: 'recipe', drinkId: d.id } : { s: 'product', drinkId: d.id, step: 1 })
-  const partial = SHOWN.some((n) => stats.totals[n].unknown > 0)
+  // Avis du jour : repères de la journée + repères par prise, puis approche d'un repère (75 % ou plus).
+  const found = new Map<string, Finding>()
+  ;[...a.findings, ...stats.intakes.flatMap((i) => evaluate(st, day, i).findings.filter((f) => f.rule.period === 'prise'))].forEach((f) => found.set(f.rule.id, f))
+  const findings = [...found.values()]
+  const limits = (['cafeine', 'sucres'] as const).map((n) => ({ n, limit: dayLimit(n, st), t: stats.totals[n] })).filter((x): x is { n: 'cafeine' | 'sucres'; limit: number; t: Total } => !!x.limit)
+  const near = limits.filter((x) => x.t.v >= 0.75 * x.limit && x.t.v <= x.limit)
+  const level = !stats.count ? 'none' : findings.some((f) => f.rule.level !== 'vigilance') ? 'over' : findings.length || near.length ? 'att' : 'ok'
+  const V = { none: ['Rien de noté', 'glass'], ok: ['Ça va', 'check'], att: ['Attention', 'info'], over: ['Trop', 'info'] }[level]
   return (
     <>
       <Ribbon show={hasFake(st)} />
@@ -79,26 +71,36 @@ export function Today({ day: d0 }: { day?: string }) {
         <button className="ib" aria-label="Jour suivant" disabled={!next} onClick={() => next && go({ s: 'today', day: next === t ? undefined : next })}><Icon n="next" /></button>
       </div>} />
       <main className="main">
-        <section className="card hero-card" aria-labelledby="eau">
-          <div className="hydro">
-            <div className="ringbox"><Ring pct={target ? stats.volume / target : 0} /><span className="rc"><b className="num">{fmt(stats.volume / 1000, 2)}</b><small>litre{stats.volume >= 2000 ? 's' : ''} bu{stats.volume >= 2000 ? 's' : ''}</small></span></div>
-            <div className="hx">
-              <span className="lbl" id="eau">Hydratation</span>
-              {w.ok ? (w.remainingMl > 0
-                ? <><span className="hs">Il te reste à boire</span><span className="big num">{fmt(w.remainingMl / 1000, 2)} L</span></>
-                : <><span className="hs">Repère du jour</span><span className="big num ok">Atteint</span></>)
-                : <><span className="hs">Boissons enregistrées</span><span className="big num">{fmt(stats.volume, 0)} ml</span></>}
-              {w.ok ? <span className="hs">sur {fmt(target / 1000, 1)} L{w.sportMl ? `, dont ${fmt(w.sportMl / 1000, 1)} L pour le sport` : ''}</span>
-                : <button className="a" onClick={() => go({ s: 'settings' })}>{w.reason}</button>}
-            </div>
-          </div>
-          {stats.volume > 0 && <>
-            <div className="stack" role="img" aria-label={'Répartition : ' + cats.map(([c, v]) => `${CATEGORIES[c]} ${v} ml`).join(', ')}>
-              {cats.map(([c, v]) => <i key={c} style={{ width: `${(v / stats.volume) * 100}%`, background: CAT_COLOR[c] }} />)}
-            </div>
-            <div className="legend">{cats.map(([c, v]) => <span key={c}><i style={{ background: CAT_COLOR[c] }} />{catLabel(c)} <span className="num">{fmt(v, 0)}</span></span>)}</div>
-          </>}
+        <section className={'verdict v-' + level} aria-live="polite" aria-label="Avis du jour">
+          <div className="vh"><span className="vi"><Icon n={V[1]} /></span><h2>{V[0]}</h2></div>
+          {level === 'none' && <p>Ajoute ce que tu bois pour avoir un avis.</p>}
+          {level === 'ok' && <p>Aucun dépassement détecté parmi les règles évaluables avec les informations disponibles.</p>}
+          {findings.map((f) => { const u = NUTRIENTS[f.rule.substance].unit; return (
+            <button key={f.key} className="vf" onClick={() => go({ s: 'rule', ruleId: f.rule.id })}>
+              <b>{f.rule.title}</b><span>{f.partial ? 'Au moins ' : ''}{fmt(f.value, 0)} {u} pour un repère de {fmt(f.rule.trigger.value, 0)} {u}{f.rule.period === 'prise' ? ' en une prise' : ' par jour'}.</span><Icon n="next" />
+            </button>
+          ) })}
+          {level !== 'over' && near.map((x) => <p key={x.n}>Tu es à {fmt((x.t.v / x.limit) * 100, 0)} % du repère de {nlabel(x.n).toLowerCase()} du jour.</p>)}
+          {incomplete.length > 0 && <p className="vp">Avis partiel : il manque des valeurs pour {incomplete.length} boisson{incomplete.length > 1 ? 's' : ''}.</p>}
         </section>
+
+        {(stats.count > 0 || w.ok) && <section className="card" aria-labelledby="enc">
+          <span className="lbl" id="enc">Ce que tu peux encore boire</span>
+          {w.ok ? <div className="left">
+            <div className="lr"><b>Eau et boissons</b><span className="lv num">{w.remainingMl > 0 ? `encore ${fmt(w.remainingMl / 1000, 2)} L à boire` : 'repère atteint'}</span></div>
+            <div className="meter sm"><i style={{ width: `${Math.min(1, stats.volume / target) * 100}%` }} /></div>
+            <small className="num">{fmt(stats.volume / 1000, 2)} L bus sur {fmt(target / 1000, 1)} L{w.sportMl ? `, dont ${fmt(w.sportMl / 1000, 1)} L pour le sport` : ''}</small>
+          </div> : <button className="a" onClick={() => go({ s: 'settings' })}>{w.reason}</button>}
+          {limits.map((x) => <Left key={x.n} n={x.n} t={x.t} limit={x.limit} label={x.n === 'cafeine' ? 'Caféine' : 'Sucres'} onOver="repère dépassé" />)}
+        </section>}
+
+        {incomplete.map((d) => (
+          <button className="row solo" key={d.id} onClick={() => editDrink(d)}>
+            <span className="ic" style={{ background: '#FF9F0A' }}><Icon n="edit" /></span>
+            <span className="m"><b>Compléter {d.name}</b><small>Des valeurs manquent sur sa fiche</small></span>
+            <span className="chev"><Icon n="next" /></span>
+          </button>
+        ))}
 
         {quick.length > 0 && <div className="field"><span className="sect" style={{ marginBottom: 0 }}>Ajouter en un geste</span>
           <div className="quick">{quick.map((q) => (
@@ -108,38 +110,7 @@ export function Today({ day: d0 }: { day?: string }) {
             </button>
           ))}</div></div>}
 
-        <section className="tiles" aria-label="Repères du jour">
-          <Gauge n="sucres" t={stats.totals.sucres} limit={dayLimit('sucres', st)} />
-          <Gauge n="cafeine" t={stats.totals.cafeine} limit={dayLimit('cafeine', st)} />
-          <Gauge n="energie_kcal" t={stats.totals.energie_kcal} />
-          <div className={'tile' + (a.findings.length ? ' over' : '')}>
-            <span className="tl">Avis du jour</span>
-            <span className="tv" style={{ fontSize: 17, lineHeight: 1.2 }}>{a.findings.length ? `${a.findings.length} signalement${a.findings.length > 1 ? 's' : ''}` : 'Aucun dépassement'}</span>
-            <span className="ts">{a.findings.length ? 'détail ci-dessous' : stats.count ? 'parmi les repères évaluables' : 'aucune boisson saisie'}</span>
-          </div>
-        </section>
-
-        {incomplete.length > 0 && <>
-          <div className="sect">Fiches à compléter</div>
-          <section className="list">
-            {incomplete.map((d) => { const miss = SHOWN.filter((n) => { const x = per100(d, n); return !isKnown(x) && x.missing !== 'non_applicable' && x.missing !== 'non_indique' }); return (
-              <button className="row" key={d.id} onClick={() => editDrink(d)}>
-                <span className="ic" style={{ background: 'var(--warn, #FF9F0A)' }}><Icon n="edit" /></span>
-                <span className="m"><b>{d.name}</b><small>Manque : {miss.map((n) => nlabel(n).toLowerCase()).join(', ')}</small></span>
-                <span className="chev"><Icon n="next" /></span>
-              </button>
-            ) })}
-          </section>
-          <p className="note"><Icon n="info" />Complète ces fiches depuis l’étiquette pour que les apports du jour soient complets.</p>
-        </>}
-
-        {a.findings.map((f) => (
-          <button key={f.key} className="a" style={{ textDecoration: 'none' }} onClick={() => go({ s: 'rule', ruleId: f.rule.id })}>
-            <StateBox k={f.rule.level} title={f.rule.title}><p>{f.text}</p><p className="help" style={{ marginTop: 4 }}>Voir le détail du repère</p></StateBox>
-          </button>
-        ))}
-
-        <div className="sect">Journal{stats.count ? ` · ${stats.count} boisson${stats.count > 1 ? 's' : ''}` : ''}</div>
+        <div className="sect">Bu {day === t ? 'aujourd’hui' : 'ce jour-là'}{stats.count ? ` · ${fmt(stats.volume / 1000, 2)} L` : ''}</div>
         <section className="list">
           {stats.count === 0 ? (
             <div className="empty"><Icon n="glass" /><p>Aucune boisson enregistrée {day === t ? 'aujourd’hui' : 'ce jour-là'}.</p><button className="btn sm" onClick={() => go({ s: 'choose' })}><Icon n="plus" />Ajouter une boisson</button></div>
@@ -147,7 +118,7 @@ export function Today({ day: d0 }: { day?: string }) {
             const d = byId.get(i.drinkId)
             const su = d ? intakeValue(d, 'sucres', i.ml) : undefined
             const ca = d ? intakeValue(d, 'cafeine', i.ml) : undefined
-            const bits = [isKnown(su) && su.v > 0 ? `${fmt(su.v, 1)} g de sucres` : '', isKnown(ca) && ca.v > 0 ? `${fmt(ca.v, 0)} mg de caféine` : '', d && incomplete.includes(d) ? 'fiche à compléter' : ''].filter(Boolean)
+            const bits = [isKnown(su) && su.v > 0 ? `${fmt(su.v, 1)} g de sucres` : '', isKnown(ca) && ca.v > 0 ? `${fmt(ca.v, 0)} mg de caféine` : ''].filter(Boolean)
             return (
               <button className="row" key={i.id} onClick={() => go({ s: 'intake', drinkId: i.drinkId, intakeId: i.id })} aria-label={`Modifier : ${d?.name ?? 'boisson supprimée'}, ${i.ml} ml à ${time(i.at)}`}>
                 <span className="ic" style={{ background: d ? CAT_COLOR[d.category] : 'var(--c9)' }}><Icon n={d ? CAT_ICON[d.category] : 'glass'} /></span>
@@ -159,22 +130,21 @@ export function Today({ day: d0 }: { day?: string }) {
           })}
         </section>
 
-        {stats.count > 0 && <>
-          <div className="sect">Apports du jour</div>
-          <section className="list" aria-label="Apports du jour">
+        {sessions.length > 0 && <SessionsCard day={day} />}
+        <button className="link plain" aria-expanded={detail} onClick={() => setDetail(!detail)}><Icon n={detail ? 'back' : 'next'} />{detail ? 'Masquer le détail' : 'Voir le détail et le sport'}</button>
+        {detail && <>
+          {stats.count > 0 && <section className="list" aria-label="Apports du jour">
             {SHOWN.map((n) => { const tt = stats.totals[n]; return (
               <div className="row" key={n} style={{ cursor: 'default' }}>
-                <span className="m"><b>{nlabel(n)}</b>{!tt.unknown && tt.upper && <small>l’étiquette indique « moins de » : total maximum</small>}</span>
+                <span className="m"><b>{nlabel(n)}</b></span>
                 <span className="q num" style={{ color: 'var(--ink)' }}><b>{totalTxt(tt, n)}</b></span>
               </div>
             ) })}
-          </section>
-          {partial && <p className="note"><Icon n="info" />Le signe ≥ indique un total minimum : il manque des valeurs dans les fiches à compléter.</p>}
-          {!partial && <p className="note"><Icon n="check" />Toutes les boissons du jour ont leurs valeurs : les apports sont complets.</p>}
+          </section>}
+          {stats.count > 0 && SHOWN.some((n) => stats.totals[n].unknown > 0) && <p className="note"><Icon n="info" />Le signe ≥ indique un total minimum : des valeurs manquent sur une fiche.</p>}
+          {sessions.length === 0 && <SessionsCard day={day} />}
         </>}
-
-        <SessionsCard day={day} />
-        <p className="note"><Icon n="info" />Les totaux ne comptent que les boissons saisies, pas l’alimentation. Repères officiels, pas un avis médical.</p>
+        <p className="note"><Icon n="info" />L’avis ne compte que les boissons saisies, pas l’alimentation. Repères officiels, pas un avis médical.</p>
       </main>
     </>
   )

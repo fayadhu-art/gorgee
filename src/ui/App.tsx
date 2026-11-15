@@ -46,7 +46,7 @@ export default function App() {
   const set: Ctx['set'] = (f) => setSt((s) => (s ? f(s) : s))
   const ctx: Ctx = {
     st, set, toast,
-    go: (x) => setStack((k) => (x.s === 'today' || x.s === 'library' || x.s === 'history' || x.s === 'settings' ? [x] : [...k, x])),
+    go: (x) => setStack((k) => (x.s === 'today' || x.s === 'history' || x.s === 'settings' ? [x] : [...k, x])),
     back: () => setStack((k) => (k.length > 1 ? k.slice(0, -1) : k)),
     addIntake: (i: Intake) => {
       const day = dayKey(i.at)
@@ -79,7 +79,7 @@ export default function App() {
       case 'sport': return <SportForm id={cur.id} />
     }
   })()
-  const tabs: [Screen['s'], string, string][] = [['today', 'Aujourd’hui', 'home'], ['history', 'Historique', 'chart'], ['library', 'Mes boissons', 'list'], ['settings', 'Profil', 'user']]
+  const tabs: [Screen['s'], string, string][] = [['today', 'Aujourd’hui', 'home'], ['history', 'Historique', 'chart'], ['settings', 'Profil', 'user']]
   const showNav = st.onboarded && profileComplete(st.profile) && stack.length === 1
   return (
     <AppCtx.Provider value={ctx}>

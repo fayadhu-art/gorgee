@@ -170,7 +170,7 @@ export function DrinkDetail({ drinkId }: { drinkId: string }) {
 }
 
 export function Library() {
-  const { st, go } = useApp()
+  const { st, go, back } = useApp()
   const [tab, setTab] = useState<'tout' | 'the' | 'recette' | 'commerce'>('tout')
   const [q, setQ] = useState('')
   const fold = (x: string) => x.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
@@ -178,7 +178,7 @@ export function Library() {
   return (
     <>
       <Ribbon show={hasFake(st)} />
-      <Bar large title="Mes boissons" />
+      <Bar title="Mes boissons" onBack={back} />
       <main className="main">
         <label className="search"><Icon n="search" /><input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Chercher dans mes boissons" aria-label="Chercher dans mes boissons" /></label>
         <div className="chips" role="group" aria-label="Filtrer">

@@ -229,3 +229,27 @@ textarea.inp{padding:12px 14px;min-height:84px;resize:vertical}
 
 /* Écrans de saisie : dégradé limité à l'en-tête pour garder les textes lisibles */
 .app:has(.bar:not(.large)){background:radial-gradient(120% 190px at 0% 0%,#5E5CE6 0%,rgba(94,92,230,0) 70%),radial-gradient(100% 180px at 100% 0%,#FF375F 0%,rgba(255,55,95,0) 70%),radial-gradient(70% 150px at 60% 30px,#BF5AF2 0%,rgba(191,90,242,0) 70%),var(--bg);background-repeat:no-repeat}
+/* Avis du jour */
+.verdict{border-radius:28px;padding:18px;display:flex;flex-direction:column;gap:8px;box-shadow:var(--shadow);background:var(--surface)}
+.verdict .vh{display:flex;align-items:center;gap:12px}
+.verdict h2{margin:0;font-size:34px;font-weight:800;letter-spacing:-.8px;line-height:1.05}
+.verdict .vi{width:44px;height:44px;border-radius:22px;display:grid;place-items:center;color:#fff;flex:none}
+.verdict .vi svg{width:24px;height:24px;stroke-width:2.6}
+.verdict p{margin:0;font-size:15.5px;color:var(--ink)}
+.verdict .vp{color:var(--ink2);font-size:14px}
+.verdict .vf{display:flex;flex-direction:column;gap:2px;text-align:left;border:0;border-radius:16px;padding:10px 36px 10px 12px;background:rgba(255,255,255,.6);color:var(--ink);position:relative;min-height:44px}
+.verdict .vf span{font-size:14.5px;color:var(--ink2)}
+.verdict .vf svg{position:absolute;right:10px;top:50%;margin-top:-9px;width:18px;height:18px;color:var(--muted)}
+.v-ok{background:var(--ok-bg)}.v-ok h2{color:var(--ok)}.v-ok .vi{background:#30B14E}
+.v-att{background:var(--vig-bg)}.v-att h2{color:var(--vig)}.v-att .vi{background:#F08A00}
+.v-over{background:var(--over-bg)}.v-over h2{color:var(--over)}.v-over .vi{background:#E0162B}
+.v-none .vi{background:var(--accent)}
+.left{display:flex;flex-direction:column;gap:5px;padding:6px 0}
+.left+.left{border-top:1px solid var(--line);padding-top:12px}
+.left .lr{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.left .lr b{font-size:16px}.left .lv{font-size:16px;font-weight:700;color:var(--accent-text);text-align:right}
+.left .lv.over{color:var(--over)}.left small{font-size:13px;color:var(--muted)}
+.meter.over i{background:var(--over)}
+.row.solo{background:var(--surface);border-radius:22px;padding:10px 16px;box-shadow:var(--shadow);border:0;width:100%}
+.link.plain{background:none;box-shadow:none;padding-left:4px}
+@media (prefers-color-scheme:dark){.verdict .vf{background:rgba(255,255,255,.08)}}

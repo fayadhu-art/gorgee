@@ -20,8 +20,9 @@ export function Choose({ cat }: { cat?: Category }) {
   const freq = useMemo(() => {
     const c = new Map<string, number>()
     st.intakes.forEach((i) => c.set(i.drinkId, (c.get(i.drinkId) ?? 0) + 1))
-    return usable.filter((d) => d.favorite || c.has(d.id)).sort((a, b) => Number(!!b.favorite) - Number(!!a.favorite) || (c.get(b.id) ?? 0) - (c.get(a.id) ?? 0)).slice(0, 4)
+    return [...usable].sort((a, b) => Number(!!b.favorite) - Number(!!a.favorite) || (c.get(b.id) ?? 0) - (c.get(a.id) ?? 0))
   }, [st])
+  const all = freq
   const ql = norm(q.trim())
   const words = ql.split(/\s+/).filter(Boolean)
   const results = ql
@@ -34,7 +35,7 @@ export function Choose({ cat }: { cat?: Category }) {
     const i = { id: uid(), drinkId: d.id, ml, at: new Date().toISOString(), containerId: u?.containerId, additions: [] }
     addIntake(i)
     toast(`${d.name} : ${ml} ml ajoutés`)
-    back(); go({ s: 'advice', intakeId: i.id })
+    go({ s: 'today' })
   }
   const Item = ({ d }: { d: Drink }) => {
     const u = lastUse(d.id, st.intakes)
@@ -43,7 +44,7 @@ export function Choose({ cat }: { cat?: Category }) {
       <div className="fav">
         <button className="m" onClick={() => go({ s: 'intake', drinkId: d.id })}>
           <b>{d.name}{d.fake && <span className="tag t-fake" style={{ marginLeft: 6 }}>fictif</span>}</b>
-          <small>{u ? `${c ? c.name + ' ' : ''}${u.ml} ml` : drinkSub(d)}</small>
+          <small>{u ? `${c ? c.name + ' ' : ''}${u.ml} ml` : drinkSub(d) === d.name ? `${d.capacityMl ?? 250} ml` : drinkSub(d)}</small>
         </button>
         <button className="plus" aria-label={`Ajouter ${d.name}${u ? `, ${u.ml} ml` : ''} maintenant`} onClick={() => quick(d)}><Icon n="plus" /></button>
       </div>
@@ -55,7 +56,7 @@ export function Choose({ cat }: { cat?: Category }) {
       <Bar title={cat ? CATEGORIES[cat] : 'Ajouter une boisson'} onBack={back} close={!cat} />
       <main className="main">
         <label className="search"><Icon n="search" /><input id="q" type="search" enterKeyHint="search" autoComplete="off" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Nom, marque ou type de boisson" aria-label="Rechercher une boisson" /></label>
-        <button className="btn" onClick={() => go({ s: 'scan', cat, name: q.trim() || undefined })}><Icon n="camera" />{q.trim() ? `Nouvelle boisson « ${q.trim()} » : 2 photos` : 'Nouvelle boisson du commerce : 2 photos'}</button>
+        <button className="btn" onClick={() => go({ s: 'scan', cat, name: q.trim() || undefined })}><Icon n="camera" />{q.trim() ? `Nouvelle boisson « ${q.trim()} » : 2 photos` : 'Nouvelle boisson : 2 photos'}</button>
         {(ql || cat) ? (
           <div className="field">
             <span className="lbl">{results.length} résultat{results.length > 1 ? 's' : ''}</span>
@@ -64,20 +65,12 @@ export function Choose({ cat }: { cat?: Category }) {
           </div>
         ) : (
           <>
-            {freq.length > 0 && <div className="field"><span className="sect" style={{ marginBottom: 0 }}>Habituelles · ajout en un geste</span><div className="list">{freq.map((d) => <Item key={d.id} d={d} />)}</div></div>}
-            <div className="field"><span className="sect" style={{ marginBottom: 0 }}>Par catégorie</span>
-              <div className="cats">
-                {(Object.keys(CATEGORIES) as Category[]).map((c) => (
-                  <button key={c} className="cat" onClick={() => go({ s: 'choose', cat: c })}><span className="ic" style={{ background: CAT_COLOR[c] }}><Icon n={CAT_ICON[c]} /></span>{CATEGORIES[c]}</button>
-                ))}
-              </div></div>
+            <div className="field"><span className="sect" style={{ marginBottom: 0 }}>Mes boissons · + pour ajouter d’un geste</span><div className="list">{all.map((d) => <Item key={d.id} d={d} />)}</div></div>
           </>
         )}
         <div className="list">
-        <button className="link" onClick={() => go({ s: 'scan', cat })}><Icon n="camera" />Ajouter une boisson du commerce (2 photos)</button>
         <button className="link" onClick={() => go({ s: 'scan', cat: 'the' })}><Icon n="tea" />Ajouter un thé (2 photos)</button>
         <button className="link" onClick={() => go({ s: 'tea', kind: 'infusion' })}><Icon n="leaf" />Créer une infusion</button>
-        <button className="link" onClick={() => go({ s: 'recipe' })}><Icon n="doc" />Créer une recette maison sans sucre ajouté</button>
         </div>
       </main>
     </>
@@ -104,7 +97,7 @@ export function IntakeForm({ drinkId, intakeId }: { drinkId: string; intakeId?: 
   const [note, setNote] = useState(ex?.note ?? '')
   const [confirmDel, setConfirmDel] = useState(false)
   // Eau, thé, infusion : quantité puis Valider, sans avis ni options visibles.
-  const simple = !!d && ['eau_plate', 'eau_gazeuse', 'the', 'infusion'].includes(d.category)
+  const simple = true
   const [more, setMore] = useState(false)
   if (!d) return <><Bar title="Boisson introuvable" onBack={back} /><main className="main"><p>Cette fiche n’existe plus.</p></main></>
   const cap = capOf(cont)
@@ -119,7 +112,8 @@ export function IntakeForm({ drinkId, intakeId }: { drinkId: string; intakeId?: 
     addIntake(i)
     toast(ex ? 'Consommation modifiée, totaux recalculés' : 'Consommation enregistrée')
     back(); if (!ex) back()
-    if (simple) { toast(`${d.name} : ${n} ml ajoutés`); go({ s: 'today' }) } else go({ s: 'advice', intakeId: i.id })
+    if (!ex) toast(`${d.name} : ${n} ml ajoutés`)
+    go({ s: 'today' })
   }
   const del = () => {
     if (!ex) return
@@ -137,26 +131,19 @@ export function IntakeForm({ drinkId, intakeId }: { drinkId: string; intakeId?: 
           <div style={{ flex: 1, minWidth: 0 }}><b>{d.name}</b><br /><small className="help">{drinkSub(d)}</small></div>
           <button className="a" onClick={() => go({ s: 'drink', drinkId: d.id })}>Fiche</button>
         </div>
-        {d.kind === 'commerce' ? (
-          <section className="card" aria-labelledby="nv">
-            <span className="lbl" id="nv">Valeurs nutritionnelles pour {Number(ml) > 0 ? `${ml} ml` : 'cette quantité'}</span>
-            <table className="tbl"><tbody>{SHOWN.map((n) => <tr key={n}><td>{nlabel(n)}</td><td>{Number(ml) > 0 ? fmtVal(intakeValue(d, n, Number(ml)), NUTRIENTS[n].unit, n === 'energie_kcal' || n === 'cafeine' ? 0 : 1) : '—'}</td></tr>)}</tbody></table>
-            {SHOWN.some((n) => { const x = intakeValue(d, n, 100); return !isKnown(x) && x.missing !== 'non_applicable' }) && <span className="help">Des valeurs manquent : complète-les depuis l’étiquette.</span>}
-            <button className="btn sec sm" onClick={() => go({ s: 'product', drinkId: d.id })}>Saisir ou corriger les valeurs</button>
-          </section>
-        ) : (d.kind === 'the' || d.kind === 'recette') && d.recipe && !simple ? (
-          <section className="card" aria-labelledby="cp">
-            <span className="lbl" id="cp">Composition enregistrée</span>
-            <p>{d.recipe.ingredients.map((g) => g.name).join(', ') || 'Aucun ingrédient indiqué'}</p>
-            <span className="help">Pas de valeurs à saisir : la même composition est reprise à chaque fois. Modifie la fiche seulement si la recette change.</span>
-          </section>
-        ) : null}
+        {d.kind === 'commerce' && SHOWN.some((n) => { const x = intakeValue(d, n, 100); return !isKnown(x) && x.missing !== 'non_applicable' && x.missing !== 'non_indique' }) && (
+          <button className="row solo" onClick={() => go({ s: 'product', drinkId: d.id, step: 1 })}>
+            <span className="ic" style={{ background: '#FF9F0A' }}><Icon n="edit" /></span>
+            <span className="m"><b>Compléter la fiche</b><small>Des valeurs manquent : l’avis sera partiel</small></span>
+            <span className="chev"><Icon n="next" /></span>
+          </button>
+        )}
         <div className="field"><span className="fl" id="lc">Contenant</span>
           <div className="chips" role="group" aria-labelledby="lc">
             {d.capacityMl && <button className="chip" aria-pressed={!cont} onClick={() => { setCont(undefined); setMl(String(d.capacityMl)) }}>Emballage <small>{d.capacityMl}</small></button>}
             {st.containers.map((c) => <button key={c.id} className="chip" aria-pressed={cont === c.id} onClick={() => { setCont(c.id); setMl(String(c.ml)) }}>{c.name} <small>{c.ml}</small></button>)}
           </div>
-          <span className="help">Volumes réglables dans Profil › Mes contenants.</span></div>
+</div>
         <div className="field"><span className="fl" id="lq">Quantité réellement bue</span>
           <div className="cup">
             <div className="vessel" aria-hidden="true"><i style={{ height: `${Math.min(100, (n / cap) * 100) || 0}%` }} /></div>
@@ -176,7 +163,7 @@ export function IntakeForm({ drinkId, intakeId }: { drinkId: string; intakeId?: 
           <span className={valid || !ml ? 'help' : 'err'} id="mlh">
             {!Number.isFinite(n) || n <= 0 ? 'Indique une quantité en millilitres, supérieure à zéro.' : n > 5000 ? 'Plus de 5 litres en une prise : vérifie la saisie.' : n > cap ? `${n} ml, plus que la contenance (${cap} ml). Vérifie si tu as resservi.` : `${n} ml bus sur un contenant de ${cap} ml`}
           </span></div>
-        {simple && !more && <button className="link" onClick={() => setMore(true)}><Icon n="next" />Changer l’heure ou ajouter une note</button>}
+        {simple && !more && <button className="link" onClick={() => setMore(true)}><Icon n="next" />Heure, ajouts, note</button>}
         {(!simple || more) && <>
         <div className="grid2">
           <div className="field"><label htmlFor="d">Date</label><input className="inp num" id="d" type="date" value={date} onChange={(e) => setDate(e.target.value)} /></div>
@@ -193,7 +180,7 @@ export function IntakeForm({ drinkId, intakeId }: { drinkId: string; intakeId?: 
         </>}
         {ex && <button className="btn danger" onClick={() => setConfirmDel(true)}><Icon n="trash" />Supprimer cette consommation</button>}
       </main>
-      <div className="fab"><button className="btn" disabled={!valid} onClick={submit}>{ex ? 'Enregistrer les modifications' : simple ? <><Icon n="check" />Valider</> : 'Enregistrer et voir l’avis'}</button></div>
+      <div className="fab"><button className="btn" disabled={!valid} onClick={submit}>{ex ? 'Enregistrer les modifications' : <><Icon n="check" />Valider</>}</button></div>
       {confirmDel && (
         <div className="sheet" role="dialog" aria-modal="true" aria-labelledby="cd"><div>
           <h3 id="cd">Supprimer cette consommation ?</h3>

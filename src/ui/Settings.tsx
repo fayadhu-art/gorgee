@@ -103,7 +103,7 @@ export function toCsv(s: State) {
 }
 
 export function Settings() {
-  const { st, set, toast } = useApp()
+  const { st, set, toast, go } = useApp()
   const [p, setP] = useState<Profile>(st.profile)
   const [ask, setAsk] = useState(false)
   const file = useRef<HTMLInputElement>(null)
@@ -127,6 +127,11 @@ export function Settings() {
       <Ribbon show={hasFake(st)} />
       <header className="bar large"><h1>Profil</h1></header>
       <main className="main">
+        <button className="row solo" onClick={() => go({ s: 'library' })}>
+          <span className="ic" style={{ background: 'var(--accent)' }}><Icon n="list" /></span>
+          <span className="m"><b>Mes boissons</b><small>Fiches, thés, infusions, recettes</small></span>
+          <span className="chev"><Icon n="next" /></span>
+        </button>
         <div className="sect">Mes informations</div>
         <section className="card">
           <ProfileFields p={p} onChange={setP} />
