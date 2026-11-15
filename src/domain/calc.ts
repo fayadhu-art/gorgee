@@ -2,9 +2,34 @@ import { Drink, Intake, isKnown, Known, Nutrient, Val, Category } from './types'
 
 const KJ_PER_KCAL = 4.184
 
+/**
+ * Composition de base des boissons simples non sucrées, pour 100 ml, quand aucune valeur n'a été saisie.
+ * Macronutriments : table Ciqual 2020 (Anses) — « Eau », « Café, non instantané, non sucré, prêt à boire »,
+ * « Thé infusé, non sucré », « Tisane infusée, non sucrée » (vérifié le 15/11/2026, statut à valider).
+ * Caféine : repères EFSA 2015 (café filtre 90 mg pour 200 ml ; thé noir 50 mg pour 220 ml), valeurs typiques.
+ * Les ajouts (lait, sucre…) ne sont pas couverts.
+ */
+const B = (v: number): Known => ({ v, src: 'base' })
+const ZERO = { energie_kcal: B(0), matieres_grasses: B(0), ags: B(0), glucides: B(0), sucres: B(0), proteines: B(0), sel: B(0) }
+export const BASE: Partial<Record<Category, Partial<Record<Nutrient, Known>>>> = {
+  eau_plate: { ...ZERO, cafeine: B(0) },
+  eau_gazeuse: { ...ZERO, sel: undefined as unknown as Known, cafeine: B(0) },
+  cafe: { ...ZERO, energie_kcal: B(7), glucides: B(1.4), sel: B(0.01), cafeine: B(45) },
+  the: { ...ZERO, cafeine: B(22.7) },
+  infusion: { ...ZERO, energie_kcal: B(1), glucides: B(0.2) },
+}
+/** La base ne s'applique ni aux produits du commerce (étiquette) ni aux recettes à plusieurs ingrédients nutritifs. */
+export const usesBase = (d: Drink) => d.kind !== 'commerce' && d.kind !== 'recette' && !!BASE[d.category]
+
 /** Valeur pour 100 ml, quelle que soit la base de l'étiquette. */
 export function per100(d: Drink, n: Nutrient): Val {
   let x = d.values[n]
+  if (!isKnown(x) && usesBase(d)) {
+    const b = BASE[d.category]![n]
+    if (b) return b
+    // Infusion ou thé déclaré sans caféine : rien à compter.
+    if (n === 'cafeine' && d.category === 'infusion' && !d.traits.includes('cafeinee')) return B(0)
+  }
   // Énergie : si seule la valeur en kJ est connue, conversion signalée comme estimation.
   if (n === 'energie_kcal' && !isKnown(x) && isKnown(d.values.energie_kj)) {
     x = { v: d.values.energie_kj.v / KJ_PER_KCAL, src: 'estimation' }

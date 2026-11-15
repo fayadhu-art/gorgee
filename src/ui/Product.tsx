@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { fmtVal, MISSING_LABEL, per100, SOURCE_LABEL } from '../domain/calc'
+import { fmtVal, per100, SHOWN, SOURCE_LABEL, usesBase } from '../domain/calc'
 import { uid } from '../domain/store'
 import { CATEGORIES, Category, Drink, isKnown, Nutrient, NUTRIENT_KEYS, NUTRIENTS, nlabel, Trait, TRAITS, Val, Source } from '../domain/types'
 import { Bar, CAT_COLOR, CAT_ICON, drinkSub, hasFake, Icon, Ribbon, useApp, ValInput, MISSING_OPTS, StateBox } from './parts'
@@ -24,10 +24,10 @@ function TextOrStatus({ id, label, value, onChange, area }: { id: string; label:
   )
 }
 
-export function ProductForm({ drinkId, cat, name, draft, scanned, scanErr }: { drinkId?: string; cat?: Category; name?: string; draft?: Drink; scanned?: number; scanErr?: string }) {
+export function ProductForm({ drinkId, cat, name, draft, scanned, scanErr, step: step0 }: { drinkId?: string; cat?: Category; name?: string; draft?: Drink; scanned?: number; scanErr?: string; step?: number }) {
   const { st, set, back, go, toast } = useApp()
   const ex = st.drinks.find((d) => d.id === drinkId)
-  const [step, setStep] = useState(0)
+  const [step, setStep] = useState(step0 ?? 0)
   const [d, setD] = useState<Drink>(ex ?? draft ?? {
     id: uid(), kind: 'commerce', name: name ?? '', category: cat ?? 'soda', traits: [], basis: { kind: '100ml' }, values: {}, alcoholPct: { missing: 'non_applicable' },
   })
@@ -70,7 +70,6 @@ export function ProductForm({ drinkId, cat, name, draft, scanned, scanErr }: { d
             <div className="field"><label htmlFor="cap">Contenance (ml)</label><input id="cap" className="inp num" inputMode="numeric" value={d.capacityMl ?? ''} onChange={(e) => up({ capacityMl: e.target.value ? Number(e.target.value) : undefined })} /></div>
             <div className="field"><label htmlFor="bc">Code-barres <span className="help">(facult.)</span></label><input id="bc" className="inp num" inputMode="numeric" value={d.barcode ?? ''} onChange={(e) => up({ barcode: e.target.value || undefined })} /></div>
           </div>
-          <div className="note"><Icon n="info" />La photo de l’étiquette et sa lecture automatique arriveront plus tard. Les champs préremplis devront être confirmés.</div>
         </>}
         {step === 2 && <>
           <TextOrStatus id="ing" area label="Liste des ingrédients" value={d.ingredients} onChange={(v) => up({ ingredients: v })} />
@@ -87,7 +86,7 @@ export function ProductForm({ drinkId, cat, name, draft, scanned, scanErr }: { d
             </div></div>
           {d.basis.kind === 'portion' && <div className="field"><label htmlFor="pm">Taille de la portion (ml)</label><input id="pm" className="inp num" inputMode="numeric" value={d.basis.portionMl || ''} onChange={(e) => up({ basis: { kind: 'portion', portionMl: Number(e.target.value) } })} /></div>}
           <section className="card" aria-label="Valeurs nutritionnelles">
-            {NUTRIENT_KEYS.map((n) => <ValInput key={n} id={'v-' + n} label={NUTRIENTS[n].label} unit={NUTRIENTS[n].unit} value={d.values[n]} onChange={(v) => setVal(n, v)} src="etiquette" />)}
+            {NUTRIENT_KEYS.filter((n) => n !== 'energie_kj' || isKnown(d.values[n])).map((n) => <ValInput key={n} id={'v-' + n} label={NUTRIENTS[n].label} unit={NUTRIENTS[n].unit} value={d.values[n]} onChange={(v) => setVal(n, v)} src="etiquette" />)}
             <ValInput id="v-alc" label="Degré d’alcool" unit="% vol" value={d.alcoholPct} onChange={(v) => up({ alcoholPct: v })} src="etiquette" />
           </section>
                     <div className="field"><label htmlFor="mn">Autres éléments (minéraux…) <span className="help">avec unités</span></label><input id="mn" className="inp" value={d.minerals ?? ''} onChange={(e) => up({ minerals: e.target.value || undefined })} placeholder="Ex. calcium 12 mg/100 ml" /></div>
@@ -117,8 +116,8 @@ export function DrinkCard({ d }: { d: Drink }) {
       </tbody></table>
       <span className="lbl">Pour 100 ml{d.basis.kind === 'portion' ? ` (calculé depuis une portion de ${d.basis.portionMl} ml)` : ''}</span>
       <table className="tbl"><tbody>
-        {NUTRIENT_KEYS.map((n) => { const x = per100(d, n); return (
-          <tr key={n}><td>{NUTRIENTS[n].label}{isKnown(x) && <span className="help"> · {SOURCE_LABEL[x.src]}</span>}</td><td>{fmtVal(x, NUTRIENTS[n].unit, 2)}</td></tr>
+        {SHOWN.map((n) => { const x = per100(d, n); return (
+          <tr key={n}><td>{nlabel(n)}{isKnown(x) && x.src !== 'base' && x.src !== 'etiquette' && <span className="help"> · {SOURCE_LABEL[x.src]}</span>}</td><td>{fmtVal(x, NUTRIENTS[n].unit, 2)}</td></tr>
         ) })}
         {d.alcoholPct && <tr><td>Degré d’alcool</td><td>{fmtVal(d.alcoholPct, '% vol')}</td></tr>}
         {d.minerals && <tr><td>Autres</td><td style={{ fontFamily: 'inherit' }}>{d.minerals}</td></tr>}
@@ -153,7 +152,7 @@ export function DrinkDetail({ drinkId }: { drinkId: string }) {
             {d.valuesSourceNote && <p className="help">Source des valeurs : {d.valuesSourceNote}</p>}
           </section>
         )}
-        {d.kind === 'generique' && <p className="note"><Icon n="info" />Boisson générique : composition {MISSING_LABEL.inconnu.toLowerCase()} sauf mention. Crée une fiche produit pour un produit précis.</p>}
+        {usesBase(d) && <p className="note"><Icon n="info" />Valeurs moyennes pour ce type de boisson. Pour un produit précis, ajoute sa fiche avec deux photos.</p>}
         {d.status !== 'brouillon' && <button className="btn" onClick={() => go({ s: 'intake', drinkId: d.id })}><Icon n="plus" />Saisir une consommation</button>}
         {d.kind !== 'generique' && <button className="btn sec" onClick={edit}><Icon n="edit" />Modifier la fiche</button>}
         {d.kind !== 'generique' && <button className="btn danger" onClick={() => setAsk(true)}><Icon n="trash" />Supprimer la fiche</button>}
@@ -173,12 +172,15 @@ export function DrinkDetail({ drinkId }: { drinkId: string }) {
 export function Library() {
   const { st, go } = useApp()
   const [tab, setTab] = useState<'tout' | 'the' | 'recette' | 'commerce'>('tout')
-  const list = st.drinks.filter((d) => tab === 'tout' || d.kind === tab || (tab === 'the' && (d.category === 'the' || d.category === 'infusion') && d.kind !== 'generique'))
+  const [q, setQ] = useState('')
+  const fold = (x: string) => x.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+  const list = st.drinks.filter((d) => fold(q).split(/\s+/).every((w) => fold(`${d.name} ${d.brand ?? ''} ${CATEGORIES[d.category]}`).includes(w))).filter((d) => tab === 'tout' || d.kind === tab || (tab === 'the' && (d.category === 'the' || d.category === 'infusion') && d.kind !== 'generique'))
   return (
     <>
       <Ribbon show={hasFake(st)} />
       <Bar large title="Mes boissons" />
       <main className="main">
+        <label className="search"><Icon n="search" /><input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Chercher dans mes boissons" aria-label="Chercher dans mes boissons" /></label>
         <div className="chips" role="group" aria-label="Filtrer">
           {([['tout', 'Toutes'], ['the', 'Thés et infusions'], ['recette', 'Recettes'], ['commerce', 'Commerce']] as const).map(([k, l]) => <button key={k} className="chip" aria-pressed={tab === k} onClick={() => setTab(k)}>{l}</button>)}
         </div>
@@ -187,7 +189,7 @@ export function Library() {
           {list.map((d) => (
             <button className="row" key={d.id} onClick={() => go({ s: 'drink', drinkId: d.id })}>
               <span className="ic" style={{ background: CAT_COLOR[d.category] }}><Icon n={CAT_ICON[d.category]} /></span>
-              <span className="m"><b>{d.name}{d.favorite ? ' ★' : ''}</b><small>{drinkSub(d)}{d.status === 'brouillon' ? ' · brouillon' : ''}{d.fake ? ' · fictif' : ''}</small></span>
+              <span className="m"><b>{d.name}{d.favorite ? ' ★' : ''}</b><small>{[drinkSub(d) === d.name ? 'Valeurs moyennes' : drinkSub(d), d.status === 'brouillon' ? 'brouillon' : '', d.fake ? 'fictif' : ''].filter(Boolean).join(' · ')}</small></span>
               <Icon n="next" />
             </button>
           ))}

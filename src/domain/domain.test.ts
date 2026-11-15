@@ -1,4 +1,4 @@
-import { dayKey, dayStats, intakeValue, per100, fmt, lastDays } from './calc'
+import { dayKey, dayStats, intakeValue, per100, fmt, lastDays, SHOWN } from './calc'
 import { checkIngredient, checkRecipe, recipeNutrient } from './recipe'
 import { applies, evaluate, DEMO_RULES as RULES, RULES as REAL, syncNotifications, dayScope, Rule } from './rules'
 import { waterReference, sessionNeed, dayWater } from './hydration'
@@ -16,7 +16,8 @@ const eau: Drink = {
   id: 'eau', kind: 'generique', name: 'Eau plate', category: 'eau_plate', traits: [], basis: { kind: '100ml' },
   values: { sucres: { missing: 'non_applicable' }, cafeine: { missing: 'non_applicable' }, energie_kcal: { missing: 'non_applicable' } },
 }
-const the: Drink = { id: 'the', kind: 'the', name: 'Thé maison', category: 'the', traits: ['maison'], basis: { kind: '100ml' }, values: {} }
+// Thé en bouteille sans valeurs saisies : composition inconnue (la base Ciqual ne couvre pas les produits du commerce).
+const the: Drink = { id: 'the', kind: 'commerce', name: 'Thé en bouteille', category: 'the', traits: [], basis: { kind: '100ml' }, values: {} }
 
 const it_ = (id: string, drinkId: string, ml: number, at: string, extra: Partial<Intake> = {}): Intake => ({ id, drinkId, ml, at, additions: [], ...extra })
 
@@ -68,8 +69,8 @@ describe('cumuls quotidiens et données manquantes', () => {
     expect(st.totals.sucres.v).toBeCloseTo(26.5)
     expect(st.totals.sucres.unknown).toBe(1)
   })
-  test('caféine : aucune connue, deux inconnues', () => {
-    expect(st.totals.cafeine).toMatchObject({ v: 0, known: 0, unknown: 2 })
+  test('caféine : seule l’eau est connue (0), deux inconnues', () => {
+    expect(st.totals.cafeine).toMatchObject({ v: 0, known: 1, unknown: 2 }) // l'eau compte pour 0
   })
 })
 
@@ -287,5 +288,28 @@ describe('eau restante du jour', () => {
   })
   test('sans tranche d’âge ou sexe : pas de chiffre', () => {
     expect(dayWater({ ...homme, ageRange: undefined }, 0, [], []).ok).toBe(false)
+  })
+})
+
+describe('composition de base des boissons simples (Ciqual, EFSA)', () => {
+  const g = (category: Drink['category'], kind: Drink['kind'] = 'generique', values: Drink['values'] = {}): Drink => ({ id: category, kind, name: category, category, traits: [], basis: { kind: '100ml' }, values })
+  test('eau : tout à zéro, rien d’inconnu dans les cumuls', () => {
+    const d = g('eau_plate')
+    const st = dayStats([it_('w', 'eau_plate', 500, '2026-11-14T08:00:00Z')], [d], '2026-11-14', 'UTC')
+    for (const n of SHOWN) expect(st.totals[n]).toMatchObject({ v: 0, known: 1, unknown: 0 })
+  })
+  test('café : 7 kcal et 45 mg de caféine pour 100 ml ; thé : 22,7 mg', () => {
+    expect(v(intakeValue(g('cafe'), 'energie_kcal', 200))).toBeCloseTo(14)
+    expect(v(intakeValue(g('cafe'), 'cafeine', 200))).toBeCloseTo(90)
+    expect(v(intakeValue(g('the', 'the'), 'cafeine', 220))).toBeCloseTo(50, 0)
+    expect(per100(g('the', 'the'), 'cafeine')).toMatchObject({ src: 'base' })
+  })
+  test('une valeur saisie prime sur la base ; un produit du commerce n’utilise jamais la base', () => {
+    expect(v(per100(g('cafe', 'generique', { cafeine: { v: 60, src: 'utilisateur' } }), 'cafeine'))).toBe(60)
+    expect(isKnown(per100(g('cafe', 'commerce'), 'cafeine'))).toBe(false)
+  })
+  test('eau gazeuse : le sel dépend de la marque, il reste inconnu', () => {
+    expect(isKnown(per100(g('eau_gazeuse'), 'sel'))).toBe(false)
+    expect(v(per100(g('eau_gazeuse'), 'sucres'))).toBe(0)
   })
 })

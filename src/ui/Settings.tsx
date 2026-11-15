@@ -168,7 +168,7 @@ export function Settings() {
           <button className="link" style={{ color: 'var(--over)' }} onClick={() => setAsk(true)}><Icon n="trash" />Supprimer toutes mes données</button>
         </section>
         <input ref={file} type="file" accept="application/json,.json" hidden onChange={(e) => importFile(e.target.files?.[0])} />
-        <p className="note"><Icon n="info" />Tes données sont stockées sur cet appareil et conservées lors des mises à jour de l’appli. Fais une sauvegarde avant de changer de téléphone ou d’effacer Safari.</p>
+        <p className="note"><Icon n="info" />Tes données sont stockées sur cet appareil et conservées lors des mises à jour de l’appli. Fais une sauvegarde avant de changer de téléphone ou de supprimer l’appli.</p>
         <p className="note"><Icon n="info" />Gorgée ne transmet rien à un service tiers. Elle ne gère pas les maladies ni les interactions médicamenteuses. Aucune conformité juridique n’est revendiquée.</p>
       </main>
       {ask && (
